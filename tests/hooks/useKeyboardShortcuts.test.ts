@@ -86,6 +86,77 @@ describe('useKeyboardShortcuts', () => {
     expect(onToggle).not.toHaveBeenCalled()
   })
 
+  it('leaves Space to a focused button and does not pause', () => {
+    const onToggle = vi.fn()
+    renderHook(() => useKeyboardShortcuts({ onPauseToggle: onToggle }))
+
+    const button = document.createElement('button')
+    document.body.appendChild(button)
+
+    try {
+      button.focus()
+      const event = fireKey(' ', button)
+      expect(event.defaultPrevented).toBe(false)
+      expect(onToggle).not.toHaveBeenCalled()
+    } finally {
+      button.remove()
+    }
+  })
+
+  it('leaves P alone when a button is focused', () => {
+    const onToggle = vi.fn()
+    renderHook(() => useKeyboardShortcuts({ onPauseToggle: onToggle }))
+
+    const button = document.createElement('button')
+    document.body.appendChild(button)
+    fireKey('p', button)
+    button.remove()
+
+    expect(onToggle).not.toHaveBeenCalled()
+  })
+
+  it('leaves Space to an element with role="button"', () => {
+    const onToggle = vi.fn()
+    renderHook(() => useKeyboardShortcuts({ onPauseToggle: onToggle }))
+
+    const control = document.createElement('div')
+    control.setAttribute('role', 'button')
+    document.body.appendChild(control)
+    const event = fireKey(' ', control)
+    control.remove()
+
+    expect(event.defaultPrevented).toBe(false)
+    expect(onToggle).not.toHaveBeenCalled()
+  })
+
+  it('leaves Space to a control when the event target is nested inside it', () => {
+    const onToggle = vi.fn()
+    renderHook(() => useKeyboardShortcuts({ onPauseToggle: onToggle }))
+
+    const button = document.createElement('button')
+    const icon = document.createElement('span')
+    button.appendChild(icon)
+    document.body.appendChild(button)
+    fireKey(' ', icon)
+    button.remove()
+
+    expect(onToggle).not.toHaveBeenCalled()
+  })
+
+  it('still resumes on Escape when a button is focused', () => {
+    const onToggle = vi.fn()
+    const onResume = vi.fn()
+    renderHook(() => useKeyboardShortcuts({ onPauseToggle: onToggle, onResume }))
+
+    const button = document.createElement('button')
+    document.body.appendChild(button)
+    fireKey('Escape', button)
+    button.remove()
+
+    expect(onResume).toHaveBeenCalledTimes(1)
+    expect(onToggle).not.toHaveBeenCalled()
+  })
+
   it('does nothing when the event has defaultPrevented = true', () => {
     const onToggle = vi.fn()
     renderHook(() => useKeyboardShortcuts({ onPauseToggle: onToggle }))
