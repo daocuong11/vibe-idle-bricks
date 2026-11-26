@@ -33,7 +33,7 @@ Issues: [#99].
 - [x] Guard `setItem` with try/catch plus a one-time toast; in-memory fallback.
 - [x] Tests: NaN/Infinity coins, negative coins/costs, oversized prestige/tier, future version, legacy migration, quota read/write.
 
-Implemented 2026-11-26; PR pending.
+Done 2026-11-26; merged in PR #111. #99 closed.
 
 Exit criteria: crafted saves cannot soft-lock or mint coins; local saves are versioned and migratable.
 
