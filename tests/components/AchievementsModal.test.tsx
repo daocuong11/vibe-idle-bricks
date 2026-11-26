@@ -93,6 +93,12 @@ describe('AchievementsModal', () => {
     }
   })
 
+  it('shows the Blueprint reward for every achievement', () => {
+    render(<AchievementsModal open={true} onClose={() => {}} />)
+    const item = screen.getByTestId('achievement-first_brick')
+    expect(within(item).getByText(/\+1 Blueprints/)).toBeInTheDocument()
+  })
+
   it('marks every achievement as locked when none are unlocked', () => {
     render(<AchievementsModal open={true} onClose={() => {}} />)
     for (const def of ACHIEVEMENTS) {
@@ -116,7 +122,7 @@ describe('AchievementsModal', () => {
     expect(item.className).toMatch(/is-unlocked/)
     // Date formatted like "May 1, 2024" (en-US) or similar — just check that
     // something date-like renders in the status region.
-    const status = within(item).getByText(/2024|May|\d{1,2}/)
+    const status = within(item).getByText(/2024|May/)
     expect(status).toBeInTheDocument()
   })
 

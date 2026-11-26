@@ -80,6 +80,7 @@ export function Shop() {
   const blueprints = useGameStore((state) => state.blueprints);
   const canPrestige = useGameStore((state) => state.canPrestige);
   const buyBall = useGameStore((state) => state.buyBall);
+  const buyMaxBalls = useGameStore((state) => state.buyMaxBalls);
   const buyUpgrade = useGameStore((state) => state.buyUpgrade);
   const buyMaxUpgrade = useGameStore((state) => state.buyMaxUpgrade);
   const prestige = useGameStore((state) => state.prestige);
@@ -152,19 +153,28 @@ export function Shop() {
               const Icon = BallIcons[type];
 
               return (
-                <button
-                  key={type}
-                  className={`shop-item ball-${type} ${canAfford ? 'affordable' : ''}`}
-                  disabled={!canAfford}
-                  onClick={() => buyBall(type)}
-                >
-                  <span className="item-name">
-                    <Icon size={16} className="inline-block mr-2" style={{ verticalAlign: 'text-bottom' }} aria-hidden="true" />
-                    {type.charAt(0).toUpperCase() + type.slice(1)} Ball
-                  </span>
-                  <span className="item-cost">{isMaxed ? 'MAX' : formatNumber(cost)}</span> {isMaxed ? '' : 'coins'}
-                  <div className="item-desc">{config.description}</div>
-                </button>
+                <div key={type} className="ball-row">
+                  <button
+                    className={`shop-item ball-${type} ${canAfford ? 'affordable' : ''}`}
+                    disabled={!canAfford}
+                    onClick={() => buyBall(type)}
+                  >
+                    <span className="item-name">
+                      <Icon size={16} className="inline-block mr-2" style={{ verticalAlign: 'text-bottom' }} aria-hidden="true" />
+                      {type.charAt(0).toUpperCase() + type.slice(1)} Ball
+                    </span>
+                    <span className="item-cost">{isMaxed ? 'MAX' : formatNumber(cost)}</span> {isMaxed ? '' : 'coins'}
+                    <div className="item-desc">{config.description}</div>
+                  </button>
+                  <button
+                    className="ball-max-btn"
+                    disabled={!canAfford || isMaxed}
+                    onClick={() => buyMaxBalls(type)}
+                    aria-label={`Buy max ${type}`}
+                  >
+                    Max
+                  </button>
+                </div>
               );
             })}
           </div>

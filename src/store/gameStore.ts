@@ -27,6 +27,7 @@ import type {
 } from '../types';
 import {
   evaluateAchievements,
+  getAchievementBlueprintReward,
   getEmptyUnlocks,
   type AchievementGameState,
 } from '../types/achievements';
@@ -140,6 +141,13 @@ interface GameStore {
    * @returns {boolean} True if the purchase was successful, false otherwise.
    */
   buyBall: (type: BallType) => boolean;
+
+  /**
+   * Buys as many balls of a type as coins and the ball cap allow.
+   * @param type - The type of ball to buy.
+   * @returns {number} The number of balls purchased.
+   */
+  buyMaxBalls: (type: BallType) => number;
 
   /**
    * Attempts to purchase an upgrade.
@@ -1054,6 +1062,39 @@ export const useGameStore = create<GameStore>()(
       return false;
     },
 
+    buyMaxBalls: (type) => {
+      const state = get();
+      const available = MAX_BALLS - state.balls.length;
+      if (available <= 0) return 0;
+
+      const { width, height } = state.canvasSize;
+      let coins = state.coins;
+      let cost = state.ballCosts[type];
+      let count = 0;
+      const newBalls: BallData[] = [];
+
+      while (count < available && coins.gte(cost)) {
+        coins = coins.sub(cost);
+        newBalls.push(createBall(type, width, height));
+        cost = cost.mul(COST_MULTIPLIER).ceil();
+        count++;
+      }
+
+      if (count === 0) return 0;
+
+      set({
+        coins,
+        balls: [...state.balls, ...newBalls],
+        ballCosts: {
+          ...state.ballCosts,
+          [type]: cost,
+        },
+      });
+      playSound('purchase');
+      get().checkAchievements();
+      return count;
+    },
+
     buyUpgrade: (type) => {
       const state = get();
       if (type === 'speed' && state.upgrades.speed >= MAX_SPEED_UPGRADE) return false;
@@ -1391,11 +1432,17 @@ export const useGameStore = create<GameStore>()(
 
       const unlockedAt = Date.now();
       const nextUnlocked = { ...state.unlockedAchievements };
+      let blueprintReward = 0;
       for (const id of newlyUnlocked) {
         nextUnlocked[id] = unlockedAt;
+        blueprintReward += getAchievementBlueprintReward(id);
       }
 
       set({
+        blueprints:
+          blueprintReward > 0
+            ? state.blueprints.add(blueprintReward)
+            : state.blueprints,
         unlockedAchievements: nextUnlocked,
         pendingAchievementUnlocks: [
           ...state.pendingAchievementUnlocks,

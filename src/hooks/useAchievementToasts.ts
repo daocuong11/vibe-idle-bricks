@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useGameStore } from '../store';
-import { ACHIEVEMENTS_BY_ID } from '../types/achievements';
+import { ACHIEVEMENTS_BY_ID, getAchievementBlueprintReward } from '../types/achievements';
 import { useToast } from '../components/Toast';
 
 /**
@@ -31,7 +31,9 @@ export function useAchievementToasts(): void {
     for (const id of pendingUnlocks) {
       const def = ACHIEVEMENTS_BY_ID[id];
       if (!def) continue;
-      showToast(`🏆 Achievement unlocked: ${def.name}`, 'success');
+      const reward = getAchievementBlueprintReward(id);
+      const suffix = reward > 0 ? ` (+${reward} Blueprints)` : '';
+      showToast(`🏆 Achievement unlocked: ${def.name}${suffix}`, 'success');
     }
     drainQueue(pendingUnlocks);
   }, [pendingUnlocks, showToast, drainQueue]);
