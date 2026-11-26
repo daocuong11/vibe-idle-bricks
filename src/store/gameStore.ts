@@ -29,7 +29,14 @@ import {
   type AchievementGameState,
 } from '../types/achievements';
 import { createBall } from '../utils/helpers';
-import { LIVE_INCOME_CALIBRATION, calculateIncomePerSecond, calculateOfflineEarnings } from './earnings';
+import {
+  LIVE_INCOME_CALIBRATION,
+  calculateIncomePerSecond,
+  calculateOfflineEarnings,
+  getMeasuredIncomePerSecond,
+  recordIncome,
+  resetIncomeTracking,
+} from './earnings';
 import { playSound } from '../utils/audio';
 
 /**
@@ -98,6 +105,14 @@ interface GameStore {
    * @param amount - The base amount of coins to add.
    */
   addCoins: (amount: Decimal) => void;
+
+  /**
+   * Applies capped idle earnings using the supplied live rate, or the current
+   * measured-or-fallback rate when none is supplied.
+   * @param seconds - Seconds spent hidden or away.
+   * @param liveIncomePerSecond - Rate captured when the tab was hidden.
+   */
+  applyIdleEarnings: (seconds: number, liveIncomePerSecond?: Decimal) => void;
 
   /**
    * Increments the count of broken bricks and updates the tier if necessary.
@@ -252,8 +267,8 @@ interface GameStore {
   getSpeedMult: () => number;
 
   /**
-   * Estimates nominal coins per second for the current board.
-   * @returns {Decimal} Estimated income.
+   * Estimates current coins per second from live measurements when available.
+   * @returns {Decimal} Measured or calibrated nominal income.
    */
   getIncomePerSecond: () => Decimal;
 }
@@ -696,13 +711,26 @@ export const useGameStore = create<GameStore>()(
     addCoins: (amount) => {
       const state = get();
       const prestigeBonus = getPrestigeMultiplier(state.prestigeLevel);
-      const newCoins = state.coins.add(amount.mul(prestigeBonus));
+      const creditedCoins = amount.mul(prestigeBonus);
+      const newCoins = state.coins.add(creditedCoins);
       set({ coins: newCoins });
+      recordIncome(creditedCoins);
       // Only play the "coin" sound for small, non-coin-spam additions
       // (bricks award 1–10 coins, prestige awards large sums, etc.)
       if (amount.gt(0) && amount.lt(1000)) {
         playSound('coin');
       }
+    },
+
+    applyIdleEarnings: (seconds, liveIncomePerSecond) => {
+      const state = get();
+      const liveRate = liveIncomePerSecond ?? state.getIncomePerSecond();
+      const { coins, message } = calculateOfflineEarnings(liveRate, seconds);
+      set({
+        coins: state.coins.add(coins),
+        pendingOfflineMessage: message,
+        timestamp: Date.now(),
+      });
     },
 
     incrementBricksBroken: () => {
@@ -827,6 +855,7 @@ export const useGameStore = create<GameStore>()(
       });
 
       playSound('prestige');
+      resetIncomeTracking();
       get().checkAchievements();
       return true;
     },
@@ -942,6 +971,7 @@ export const useGameStore = create<GameStore>()(
           pendingSaveError: null,
         });
 
+        resetIncomeTracking();
         return true;
       } catch (e) {
         console.error('Failed to import save:', e);
@@ -950,6 +980,7 @@ export const useGameStore = create<GameStore>()(
     },
 
     load: () => {
+      resetIncomeTracking();
       const storage = getLocalStorage();
       if (!storage) return;
 
@@ -990,30 +1021,9 @@ export const useGameStore = create<GameStore>()(
         if (loadedTimestamp) {
           const offlineTime = Date.now() - loadedTimestamp;
           const seconds = offlineTime / 1000;
-          const minutes = seconds / 60;
 
-          if (minutes > 1) {
-            const newState = get();
-            const speedMult = newState.getSpeedMult();
-            const damageMult = newState.getDamageMult();
-            const coinMult = newState.getCoinMult();
-
-            const { coins: offlineCoins, message } = calculateOfflineEarnings(
-              newState.balls,
-              speedMult,
-              damageMult,
-              coinMult,
-              newState.prestigeLevel,
-              newState.currentTier,
-              seconds
-            );
-
-            if (offlineCoins.gt(0)) {
-              set({
-                coins: newState.coins.add(offlineCoins),
-                pendingOfflineMessage: message,
-              });
-            }
+          if (seconds >= 60) {
+            get().applyIdleEarnings(seconds);
           }
         }
 
@@ -1026,6 +1036,7 @@ export const useGameStore = create<GameStore>()(
     },
 
     reset: () => {
+      resetIncomeTracking();
       const storage = getLocalStorage();
       if (storage) {
         try {
@@ -1128,6 +1139,9 @@ export const useGameStore = create<GameStore>()(
 
     getIncomePerSecond: () => {
       const state = get();
+      const measured = getMeasuredIncomePerSecond();
+      if (measured.gt(0)) return measured;
+
       return calculateIncomePerSecond(
         state.balls,
         state.getSpeedMult(),

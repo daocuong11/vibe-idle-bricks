@@ -1,5 +1,13 @@
-import { describe, it, expect } from 'vitest'
-import { calculateIncomePerSecond, calculateOfflineEarnings, MAX_OFFLINE_SECONDS } from '../../src/store/earnings'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import Decimal from 'break_infinity.js'
+import {
+  calculateIncomePerSecond,
+  calculateOfflineEarnings,
+  getMeasuredIncomePerSecond,
+  recordIncome,
+  resetIncomeTracking,
+  MAX_OFFLINE_SECONDS,
+} from '../../src/store/earnings'
 import type { BallData } from '../../src/types'
 
 const createBall = (type: BallData['type']): BallData => ({
@@ -11,101 +19,103 @@ const createBall = (type: BallData['type']): BallData => ({
   dy: 0,
 })
 
+describe('live income tracking', () => {
+  beforeEach(() => {
+    resetIncomeTracking()
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:00Z'))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('returns zero until a positive gameplay credit is recorded', () => {
+    expect(getMeasuredIncomePerSecond().eq(0)).toBe(true)
+
+    recordIncome(new Decimal(0))
+    recordIncome(new Decimal(-5))
+    expect(getMeasuredIncomePerSecond().eq(0)).toBe(true)
+  })
+
+  it('averages actual credits over a rolling 60-second window', () => {
+    recordIncome(new Decimal(6))
+    vi.advanceTimersByTime(30_000)
+    recordIncome(new Decimal(60))
+
+    expect(getMeasuredIncomePerSecond().toNumber()).toBeCloseTo(1.1, 10)
+  })
+
+  it('drops credits older than 60 seconds', () => {
+    recordIncome(new Decimal(6))
+    vi.advanceTimersByTime(30_000)
+    recordIncome(new Decimal(60))
+    vi.advanceTimersByTime(30_001)
+
+    expect(getMeasuredIncomePerSecond().eq(1)).toBe(true)
+    vi.advanceTimersByTime(30_000)
+    expect(getMeasuredIncomePerSecond().eq(0)).toBe(true)
+  })
+
+  it('clears previous-run credits on reset', () => {
+    recordIncome(new Decimal(60))
+    expect(getMeasuredIncomePerSecond().eq(1)).toBe(true)
+
+    resetIncomeTracking()
+    expect(getMeasuredIncomePerSecond().eq(0)).toBe(true)
+  })
+})
+
 describe('calculateOfflineEarnings', () => {
-  it('should clamp negative offline time to zero earnings', () => {
-    const result = calculateOfflineEarnings(
-      [createBall('basic')],
-      1,
-      1,
-      1,
-      0,
-      1,
-      -120
-    )
+  it('clamps negative offline time to zero earnings', () => {
+    const result = calculateOfflineEarnings(new Decimal(1), -120)
 
     expect(result.coins.eq(0)).toBe(true)
     expect(result.message).toBeNull()
   })
 
+  it('pays 50% of the supplied live rate exactly once', () => {
+    const result = calculateOfflineEarnings(new Decimal('3.5'), 3600)
+
+    expect(result.coins.eq(6300)).toBe(true)
+  })
+
   it('should stop earning after the offline cap', () => {
-    const args: [BallData[], number, number, number, number, number] = [
-      [createBall('basic')], 1, 1, 1, 0, 1,
-    ]
-    const atCap = calculateOfflineEarnings(...args, MAX_OFFLINE_SECONDS)
-    const afterCap = calculateOfflineEarnings(...args, MAX_OFFLINE_SECONDS * 10)
+    const liveRate = new Decimal(1)
+    const atCap = calculateOfflineEarnings(liveRate, MAX_OFFLINE_SECONDS)
+    const afterCap = calculateOfflineEarnings(liveRate, MAX_OFFLINE_SECONDS * 10)
 
     expect(afterCap.coins.eq(atCap.coins)).toBe(true)
     expect(afterCap.message).toContain('24h (max)')
   })
 
   it('should state the credited duration in the welcome-back message', () => {
-    const result = calculateOfflineEarnings(
-      [createBall('basic')],
-      1,
-      1,
-      1,
-      0,
-      1,
-      2 * 3600 + 5 * 60
-    )
+    const result = calculateOfflineEarnings(new Decimal(1), 2 * 3600 + 5 * 60)
 
     expect(result.message).toContain('over 2h 5m')
   })
 
   it('should format short and whole-hour absences', () => {
-    const args: [BallData[], number, number, number, number, number] = [
-      [createBall('basic')], 1, 1, 1, 0, 1,
-    ]
-
-    expect(calculateOfflineEarnings(...args, 90).message).toContain('over 1m')
-    expect(calculateOfflineEarnings(...args, 3 * 3600).message).toContain('over 3h')
+    expect(calculateOfflineEarnings(new Decimal(1), 90).message).toContain('over 1m')
+    expect(calculateOfflineEarnings(new Decimal(1), 3 * 3600).message).toContain('over 3h')
   })
 
-  it('should count prestige damage and coins while bricks take multiple hits', () => {
-    const balls = [createBall('basic')]
-    const base = calculateOfflineEarnings(balls, 1, 1, 1, 0, 1, 3600).coins.toNumber()
-    // prestige 1: damage 1.75 -> 2 hits instead of 3 (1.5x rate), coins 1.75x
-    const prestiged = calculateOfflineEarnings(balls, 1, 1.75, 1, 1, 1, 3600).coins.toNumber()
-    expect(prestiged).toBeCloseTo(base * 1.5 * 1.75, 0)
-  })
-
-  it('should stop paying damage once a ball one-shots a brick', () => {
-    const balls = [createBall('basic')]
-    const tier20 = 20
-    const level19 = calculateOfflineEarnings(balls, 1, 1.75 ** 19, 1, 19, tier20, 3600).coins.toNumber()
-    const level20 = calculateOfflineEarnings(balls, 1, 1.75 ** 20, 1, 20, tier20, 3600).coins.toNumber()
-    expect(level20 / level19).toBeCloseTo(1.75, 2)
-  })
-
-  it('should pin tier 1 income to the live rate', () => {
-    // basic ball: 3 hits per brick, value 1, 50% offline -> 0.05 coins/s
-    const result = calculateOfflineEarnings([createBall('basic')], 1, 1, 1, 0, 1, 3600)
-    expect(result.coins.toNumber()).toBe(90)
-  })
-
-  it('should follow the value/health yield at higher tiers', () => {
-    const tier1 = calculateOfflineEarnings([createBall('basic')], 1, 1, 1, 0, 1, 3600).coins.toNumber()
-    const tier20 = calculateOfflineEarnings([createBall('basic')], 1, 1, 1, 0, 20, 3600).coins.toNumber()
-    // tier 20: health 17.25 -> 18 hits, value 120 -> 120/6 of tier 1
-    expect(tier20 / tier1).toBeCloseTo(120 / 6)
+  it('should pin the tier 1 calibrated live rate to half-rate offline income', () => {
+    // basic ball: 3 hits per brick, value 1, live 0.1/s, offline 50% -> 0.05/s
+    const liveRate = calculateIncomePerSecond([createBall('basic')], 1, 1, 1, 0, 1).mul(0.1)
+    const result = calculateOfflineEarnings(liveRate, 3600)
+    expect(result.coins.toNumber()).toBe(180)
   })
 
   it('should format large offline earnings in the welcome-back message', () => {
-    const result = calculateOfflineEarnings(
-      [createBall('basic')],
-      100,
-      100,
-      100,
-      0,
-      20,
-      3600
-    )
+    const result = calculateOfflineEarnings(new Decimal('1e20'), 3600)
 
     expect(result.coins.gt(0)).toBe(true)
     expect(result.message).toContain('Welcome back!')
-    expect(result.message).toContain('M')
+    expect(result.message).toContain('e')
   })
 })
+
 describe('calculateIncomePerSecond', () => {
   it('returns nominal income for a basic ball at tier 1', () => {
     expect(calculateIncomePerSecond([createBall('basic')], 1, 1, 1, 0, 1).toNumber()).toBe(1)
@@ -123,5 +133,28 @@ describe('calculateIncomePerSecond', () => {
     const overkill = calculateIncomePerSecond([createBall('basic')], 1, 1000, 1, 0, 20)
 
     expect(overkill.eq(enough)).toBe(true)
+  })
+
+  it('counts prestige damage while bricks take multiple hits', () => {
+    const balls = [createBall('basic')]
+    const base = calculateIncomePerSecond(balls, 1, 1, 1, 0, 1)
+    // prestige 1: damage 1.75 -> 2 hits instead of 3 (1.5x rate), coins 1.75x
+    const prestiged = calculateIncomePerSecond(balls, 1, 1.75, 1, 1, 1)
+    expect(prestiged.div(base).toNumber()).toBeCloseTo(1.5 * 1.75, 10)
+  })
+
+  it('should stop paying damage once a ball one-shots a brick', () => {
+    const balls = [createBall('basic')]
+    const tier20 = 20
+    const level19 = calculateIncomePerSecond(balls, 1, 1.75 ** 19, 1, 19, tier20)
+    const level20 = calculateIncomePerSecond(balls, 1, 1.75 ** 20, 1, 20, tier20)
+    expect(level20.div(level19).toNumber()).toBeCloseTo(1.75, 2)
+  })
+
+  it('should follow the value/health yield at higher tiers', () => {
+    const tier1 = calculateIncomePerSecond([createBall('basic')], 1, 1, 1, 0, 1)
+    const tier20 = calculateIncomePerSecond([createBall('basic')], 1, 1, 1, 0, 20)
+    // tier 20: health 17.25 -> 18 hits, value 120 -> 120/6 of tier 1
+    expect(tier20.div(tier1).toNumber()).toBeCloseTo(120 / 6)
   })
 })

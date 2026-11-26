@@ -25,9 +25,10 @@
 
 ### Persistence ✅
 
-- Auto-save every 30 seconds
+- Auto-save every 30 seconds, on `pagehide`, and when the tab becomes hidden
 - localStorage save/load
-- Offline earnings calculation
+- Background returns of at least 60 seconds grant idle income once through `applyIdleEarnings`, capped at 24 hours
+- Offline earnings use 50% of the measured-or-fallback live rate; the same rolling 60-second rate powers the Stats HUD and Shop ETAs
 - Save hydration now clamps all upgrade fields and safely defaults malformed values
 - Save validation rejects future versions and sanitizes NaN/Infinity, negative values, oversized prestige/tier, and out-of-range ball costs; writes are versioned and storage failures surface a toast
 
@@ -77,7 +78,7 @@
 - TypeScript 6.0.3 (strict, `erasableSyntaxOnly`)
 - ESLint 10.12.0 + typescript-eslint 8.71.1
 - jsdom 30.1.2
-- **Test count**: 383 passing across 32 files
+- **Test count**: 407 passing across 33 files
 - **CI**: `.github/workflows/ci.yml` runs lint, typecheck, `test:run`, and build on PRs and `main`
 
 ## Known Issues
