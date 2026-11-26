@@ -42,6 +42,7 @@ const resetStore = () => {
     bricksBroken: new Decimal(0),
     totalBricksBroken: new Decimal(0),
     prestigeLevel: 0,
+    blueprints: new Decimal(0),
     upgrades: { speed: 0, damage: 0, coinMult: 0 },
     ballCosts: {
       basic: new Decimal(BALL_TYPES.basic.baseCost),
@@ -111,6 +112,18 @@ describe('achievement store wiring', () => {
     expect(state.pendingAchievementUnlocks).toEqual(
       expect.arrayContaining(['first_brick', 'hundred_bricks']),
     )
+  })
+
+  it('grants Blueprints for newly unlocked achievements exactly once', () => {
+    useGameStore.setState({ totalBricksBroken: new Decimal(150) })
+
+    const ids = useGameStore.getState().checkAchievements()
+    expect(ids).toEqual(expect.arrayContaining(['first_brick', 'hundred_bricks']))
+    // first_brick = 1, hundred_bricks = 2
+    expect(useGameStore.getState().blueprints.eq(3)).toBe(true)
+
+    expect(useGameStore.getState().checkAchievements()).toEqual([])
+    expect(useGameStore.getState().blueprints.eq(3)).toBe(true)
   })
 
   it('drainPendingAchievementUnlocks empties the queue but keeps unlocks', () => {

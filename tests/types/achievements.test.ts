@@ -11,6 +11,8 @@ import { MAX_SPEED_UPGRADE } from '../../src/types/game'
 import {
   ACHIEVEMENTS,
   ACHIEVEMENTS_BY_ID,
+  ACHIEVEMENT_BLUEPRINT_REWARDS,
+  getAchievementBlueprintReward,
   getEmptyUnlocks,
   evaluateAchievements,
   type AchievementGameState,
@@ -26,6 +28,16 @@ const buildState = (overrides: Partial<AchievementGameState> = {}): AchievementG
   balls: [{ type: 'basic' }],
   upgrades: { speed: 0, damage: 0, coinMult: 0 },
   ...overrides,
+})
+
+describe('achievement rewards', () => {
+  it('defines a positive Blueprint reward for every achievement', () => {
+    for (const def of ACHIEVEMENTS) {
+      expect(ACHIEVEMENT_BLUEPRINT_REWARDS[def.id]).toBeGreaterThan(0)
+      expect(getAchievementBlueprintReward(def.id)).toBeGreaterThan(0)
+    }
+    expect(getAchievementBlueprintReward('unknown')).toBe(0)
+  })
 })
 
 describe('ACHIEVEMENTS', () => {

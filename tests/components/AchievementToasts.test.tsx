@@ -22,6 +22,7 @@ describe('useAchievementToasts', () => {
       useGameStore.setState({ pendingAchievementUnlocks: ['first_brick'] })
     })
     expect(screen.getByText(/Breaking In/)).toBeInTheDocument()
+    expect(screen.getByText(/\+1 Blueprints/)).toBeInTheDocument()
 
     act(() => {
       useGameStore.setState({ pendingAchievementUnlocks: ['hundred_bricks'] })

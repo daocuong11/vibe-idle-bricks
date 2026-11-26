@@ -1,7 +1,12 @@
 import { useMemo } from 'react';
 import { Modal } from './Modal';
 import { useGameStore } from '../store';
-import { ACHIEVEMENTS, type AchievementDef, type UnlockedAchievements } from '../types/achievements';
+import {
+  ACHIEVEMENTS,
+  getAchievementBlueprintReward,
+  type AchievementDef,
+  type UnlockedAchievements,
+} from '../types/achievements';
 
 /** Props for the `AchievementsModal` component. */
 interface AchievementsModalProps {
@@ -99,6 +104,11 @@ export function AchievementsModal({ open, onClose }: AchievementsModalProps) {
                 <div className="achievement-description">
                   {achievement.description}
                 </div>
+                {getAchievementBlueprintReward(achievement.id) > 0 && (
+                  <div className="achievement-reward">
+                    +{getAchievementBlueprintReward(achievement.id)} Blueprints
+                  </div>
+                )}
               </div>
               <div className="achievement-status">
                 {isUnlocked ? (

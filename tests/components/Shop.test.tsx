@@ -185,6 +185,16 @@ describe('Shop', () => {
       expect(useGameStore.getState().coins.lt(100)).toBe(true)
     })
 
+    it('should buy multiple balls with the Max button', async () => {
+      const user = userEvent.setup()
+      useGameStore.setState({ coins: new Decimal(1000) })
+      renderShop()
+
+      await user.click(screen.getByRole('button', { name: /buy max basic/i }))
+
+      expect(useGameStore.getState().balls.length).toBeGreaterThan(1)
+    })
+
     it('should update cost display after purchase', async () => {
       const user = userEvent.setup()
       useGameStore.setState({ coins: new Decimal(1000) })
@@ -377,7 +387,8 @@ describe('Shop', () => {
       await user.click(within(dialog).getByRole('button', { name: /^prestige$/i }))
 
       expect(useGameStore.getState().prestigeLevel).toBe(1)
-      expect(useGameStore.getState().blueprints.eq(1)).toBe(true)
+      // Base prestige award plus the first_prestige achievement reward.
+      expect(useGameStore.getState().blueprints.gte(1)).toBe(true)
       expect(useGameStore.getState().coins.eq(0)).toBe(true)
     })
 

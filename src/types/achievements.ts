@@ -183,6 +183,32 @@ export const ACHIEVEMENTS: ReadonlyArray<AchievementDef> = [
   },
 ];
 
+/** One-time Blueprint rewards granted when each achievement unlocks. */
+export const ACHIEVEMENT_BLUEPRINT_REWARDS: Readonly<Record<string, number>> = Object.freeze({
+  first_brick: 1,
+  hundred_bricks: 2,
+  thousand_bricks: 5,
+  ten_thousand_bricks: 10,
+  first_prestige: 5,
+  three_prestiges: 10,
+  first_purchase: 1,
+  buy_fast: 2,
+  buy_heavy: 3,
+  buy_plasma: 5,
+  buy_explosive: 5,
+  buy_sniper: 5,
+  tier_5: 2,
+  tier_10: 5,
+  tier_20: 10,
+  first_upgrade: 1,
+  max_speed: 10,
+  max_damage: 10,
+});
+
+/** Blueprints granted for an achievement id; unknown ids grant none. */
+export const getAchievementBlueprintReward = (id: string): number =>
+  ACHIEVEMENT_BLUEPRINT_REWARDS[id] ?? 0;
+
 /** O(1) lookup of achievement definitions by id. */
 export const ACHIEVEMENTS_BY_ID: Readonly<Record<string, AchievementDef>> =
   Object.freeze(
