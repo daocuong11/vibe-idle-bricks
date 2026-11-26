@@ -1,4 +1,3 @@
-import * as Phaser from 'phaser';
 import type { BrickData } from '../types';
 import { calculateBrickStats } from '../types';
 import { generateId } from '../utils';
@@ -15,20 +14,25 @@ import {
  * Manages brick generation and screen-space placement.
  */
 export class BrickManager {
-  private readonly scene: Phaser.Scene;
+  private size: { width: number; height: number };
 
-  constructor(scene: Phaser.Scene) {
-    this.scene = scene;
+  constructor(size: { width: number; height: number }) {
+    this.size = { width: size.width, height: size.height };
+  }
+
+  /** Updates the viewport used for layout and capacity calculations. */
+  resize(width: number, height: number) {
+    this.size = { width, height };
   }
 
   private get offsetTop() {
     // Leaves the top edge and launch zone visually clear.
-    return Math.max(20, this.scene.cameras.main.height * 0.2);
+    return Math.max(20, this.size.height * 0.2);
   }
 
   /** Lowest brick row stays above the floor and launch zone. */
   private get fillBottom() {
-    const { height } = this.scene.cameras.main;
+    const { height } = this.size;
     const spawnTop = height - ARENA_FLOOR_HEIGHT - getSpawnZoneHeight(height);
     return Math.min(height * MAX_ROWS_FILL_FACTOR, spawnTop);
   }
@@ -43,7 +47,7 @@ export class BrickManager {
 
   /** Maximum bricks the current viewport can hold. */
   getCapacity(): number {
-    const { width } = this.scene.cameras.main;
+    const { width } = this.size;
     const cols = Math.floor(
       (width - this.offsetLeft * 2) / (BRICK_WIDTH + BRICK_PADDING)
     );
@@ -53,7 +57,7 @@ export class BrickManager {
   private get offsetLeft() {
     return Math.max(
       20,
-      (this.scene.cameras.main.width % (BRICK_WIDTH + BRICK_PADDING)) / 2
+      (this.size.width % (BRICK_WIDTH + BRICK_PADDING)) / 2
     );
   }
 
@@ -82,7 +86,7 @@ export class BrickManager {
    * Generates a grid of bricks.
    */
   generateBricks(count: number, baseTier: number): BrickData[] {
-    const { width } = this.scene.cameras.main;
+    const { width } = this.size;
     const bricks: BrickData[] = [];
     const cols = Math.floor(
       (width - this.offsetLeft * 2) / (BRICK_WIDTH + BRICK_PADDING)
@@ -108,7 +112,7 @@ export class BrickManager {
    * Adds new bricks to fill available space on the screen.
    */
   addBricksToFillScreen(currentBricks: BrickData[], baseTier: number): BrickData[] {
-    const { width } = this.scene.cameras.main;
+    const { width } = this.size;
     const cols = Math.floor(
       (width - this.offsetLeft * 2) / (BRICK_WIDTH + BRICK_PADDING)
     );

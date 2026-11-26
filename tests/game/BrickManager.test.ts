@@ -1,30 +1,12 @@
-import { vi } from 'vitest';
-
-// Mock Phaser before BrickManager imports it to avoid canvas initialization in jsdom
-vi.mock('phaser', () => ({
-  default: {},
-}));
-
 import { describe, it, expect } from 'vitest';
 import { BrickManager } from '../../src/game/BrickManager';
 import { BRICK_WIDTH, BRICK_HEIGHT, BRICK_PADDING, MAX_ROWS_FILL_FACTOR, ARENA_FLOOR_HEIGHT, getSpawnZoneHeight } from '../../src/game/constants';
-
-function createMockScene(width: number, height: number) {
-  return {
-    cameras: {
-      main: {
-        width,
-        height,
-      },
-    },
-  } as unknown as import('phaser').Scene;
-}
 
 describe('BrickManager', () => {
   describe('generateBricks', () => {
     it('keeps every brick above the launch zone on a short canvas', () => {
       const height = 250;
-      const manager = new BrickManager(createMockScene(375, height));
+      const manager = new BrickManager({ width: 375, height });
       const bricks = manager.generateBricks(1000, 1);
       const spawnTop = height - ARENA_FLOOR_HEIGHT - getSpawnZoneHeight(height);
 
@@ -36,13 +18,13 @@ describe('BrickManager', () => {
     })
 
     it('generates the requested number of bricks', () => {
-      const manager = new BrickManager(createMockScene(800, 600));
+      const manager = new BrickManager({ width: 800, height: 600 });
       const bricks = manager.generateBricks(20, 1);
       expect(bricks.length).toBe(20);
     });
 
     it('lays bricks out in a grid starting from offsetLeft and offsetTop', () => {
-      const manager = new BrickManager(createMockScene(800, 600));
+      const manager = new BrickManager({ width: 800, height: 600 });
       const bricks = manager.generateBricks(2, 1);
 
       expect(bricks[0].x).toBeLessThan(bricks[1].x);
@@ -50,7 +32,7 @@ describe('BrickManager', () => {
     });
 
     it('assigns bricks the correct dimensions', () => {
-      const manager = new BrickManager(createMockScene(400, 300));
+      const manager = new BrickManager({ width: 400, height: 300 });
       const bricks = manager.generateBricks(1, 1);
 
       expect(bricks[0].width).toBe(BRICK_WIDTH);
@@ -58,7 +40,7 @@ describe('BrickManager', () => {
     });
 
     it('varies tier around the base tier', () => {
-      const manager = new BrickManager(createMockScene(800, 600));
+      const manager = new BrickManager({ width: 800, height: 600 });
       const bricks = manager.generateBricks(50, 5);
 
       const tiers = bricks.map((b) => b.tier);
@@ -70,7 +52,7 @@ describe('BrickManager', () => {
     });
 
     it('does not drop tier below 1', () => {
-      const manager = new BrickManager(createMockScene(800, 600));
+      const manager = new BrickManager({ width: 800, height: 600 });
       const bricks = manager.generateBricks(100, 1);
 
       expect(bricks.every((b) => b.tier >= 1)).toBe(true);
@@ -79,7 +61,7 @@ describe('BrickManager', () => {
 
   describe('addBricksToFillScreen', () => {
     it('returns empty array when screen is already full', () => {
-      const manager = new BrickManager(createMockScene(200, 200));
+      const manager = new BrickManager({ width: 200, height: 200 });
       const cols = Math.floor((200 - 40) / (BRICK_WIDTH + BRICK_PADDING));
       const offsetTop = Math.max(20, 200 * 0.2);
       const maxRows = Math.floor((200 * MAX_ROWS_FILL_FACTOR - offsetTop) / (BRICK_HEIGHT + BRICK_PADDING));
@@ -90,7 +72,7 @@ describe('BrickManager', () => {
     });
 
     it('fills empty grid slots up to one row worth', () => {
-      const manager = new BrickManager(createMockScene(400, 300));
+      const manager = new BrickManager({ width: 400, height: 300 });
       const existing = manager.generateBricks(5, 1);
       const added = manager.addBricksToFillScreen(existing, 2);
 
@@ -101,7 +83,7 @@ describe('BrickManager', () => {
     });
 
     it('returns bricks with valid stats', () => {
-      const manager = new BrickManager(createMockScene(400, 300));
+      const manager = new BrickManager({ width: 400, height: 300 });
       const added = manager.addBricksToFillScreen([], 3);
 
       expect(added.length).toBeGreaterThan(0);
@@ -111,6 +93,21 @@ describe('BrickManager', () => {
         expect(brick.maxHealth.gt(0)).toBe(true);
         expect(brick.value.gte(0)).toBe(true);
       }
+    });
+  });
+
+  describe('resize', () => {
+    it('recomputes capacity and layout for the new viewport', () => {
+      const manager = new BrickManager({ width: 800, height: 500 });
+      const wideCapacity = manager.getCapacity();
+
+      manager.resize(400, 300);
+
+      expect(manager.getCapacity()).toBeLessThan(wideCapacity);
+      const bricks = manager.generateBricks(1000, 1);
+      expect(bricks.length).toBeGreaterThan(0);
+      expect(bricks.every((brick) => brick.x + brick.width <= 400)).toBe(true);
+      expect(bricks.every((brick) => brick.y + brick.height <= 300)).toBe(true);
     });
   });
 });

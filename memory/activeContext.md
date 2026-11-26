@@ -201,6 +201,8 @@ TASK009 PR3 (mobile + achievements):
 6. Add a stats route/modal showing unlocked vs locked achievements.
 7. Validate, commit, push, open PR.
 
+Batch 4 evaluated a DPR-aware Canvas2D adapter. Phaser remains the production renderer for Batch 5. See [the comparison and revisit criteria](designs/DESIGN011-renderer-spike.md).
+
 ## Active Decisions
 
 | Decision | Status | Notes |
