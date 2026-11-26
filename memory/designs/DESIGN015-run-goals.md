@@ -2,7 +2,7 @@
 
 Date: 2026-11-27
 Issue: #85 (final piece; offline multiplier is covered by the Insight prestige node)
-Branch: `feat/run-goals`
+Branch: `feat/run-goals` (merged in PR #123)
 
 ## EARS Requirements
 

@@ -106,15 +106,15 @@ Completed 2026-11-26: `src/game/model/balanceHarness.ts` + `scripts/balance-repo
 Issues: [#66], [#85], [#82], [#83], [#86], [#84].
 
 - [x] [#66] achievement rewards: one-time Blueprints, shown in the modal and toast. Merged in #119.
-- [x] [#85] batch ball purchase (Max), opt-in auto-buy with a 50% reserve, and run goals at 100/500/1,000 bricks. Offline multiplier is covered by Insight. (Run goals close on merge.)
+- [x] [#85] batch ball purchase (Max), opt-in auto-buy with a 50% reserve, and run goals at 100/500/1,000 bricks. Offline multiplier is covered by Insight. Merged across #119/#122/#123.
 - [x] [#82] gold and armored bricks MVP; spawn table plus in-game documentation. Merged in #120.
 - [ ] [#83] per-ball progression (levels, fusion, or targeted abilities).
 - [ ] [#86] prestige tree and lifetime stats (after [#99]).
 - [x] [#84] active layer: click-to-mark priority targeting (optional; idle falls back to weakest). Merged in #122.
 
-Batch 7a merged in #119, Batch 7b in #120, #86 in #121, and Batch 7c in
-#122; #84 closed. Batch 7d closes #85 on merge. Only #83 (per-ball progression)
-and #56 (HiDPI) remain in the content/visual backlog.
+Batch 7a merged in #119, Batch 7b in #120, #86 in #121, Batch 7c in #122,
+and Batch 7d in #123; #84/#85 closed. Only #83 (per-ball progression) and #56
+(HiDPI) remain in the content/visual backlog.
 
 ## Batch 8 — Visual leaves (after Batch 4)
 

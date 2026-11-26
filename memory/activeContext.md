@@ -2,11 +2,11 @@
 
 ## Current Work Focus
 
-Batch 7d (**Run goals**) is implemented on `feat/run-goals` (2026-11-27):
+Batch 7d (**Run goals**) is **complete** (2026-11-27, PR #123):
 100/500/1,000-brick goals award 1/2/3 Blueprints once per run, show progress in
 Stats and a toast, reset on prestige, and persist in save v5. The offline
-multiplier is covered by the Insight node. 525 tests across 45 files; #85 closes
-on merge.
+multiplier is covered by the Insight node. 525 tests across 45 files; #85 is
+closed.
 
 Batch 7c (**Active focus + auto-buy**) is **complete** (2026-11-27,
 PR #122): clicking a brick now marks it as the
@@ -81,7 +81,7 @@ playtest and earlier batches.
 
 ## Recent Changes
 
-- Batch 7d: run goals (100/500/1,000 bricks → 1/2/3 Blueprints), Stats progress,
+- Batch 7d (PR #123): run goals (100/500/1,000 bricks → 1/2/3 Blueprints), Stats progress,
   toast queue, save v5 migration, prestige/reset behavior. Offline multiplier is
   handled by the existing Insight node.
 
