@@ -4,8 +4,8 @@
 
 Batch 5 Stage 1 is **complete** (2026-11-26, PR #117): board rules now
 live in the platform-free `src/game/model/` core, with `BoardSimulation`
-retained as the store/effects adapter. Stage 2 is implemented on
-`feat/board-snapshots`: renderers read live runtime state at 60 fps, while the
+retained as the store/effects adapter. Stage 2 is **complete**
+(2026-11-26, PR #118): renderers read live runtime state at 60 fps, while the
 store receives a board mirror at most every 100 ms; external ball/brick/
 explosion replacements are adopted independently. Board save/restore,
 deterministic offline fast-forward, and reward-write batching remain; #103
@@ -38,7 +38,7 @@ playtest and earlier batches.
 
 ## Recent Changes
 
-- Batch 5 Stage 2 (working tree): `BoardSimulation.getRenderState()` feeds
+- Batch 5 Stage 2 (PR #118): `BoardSimulation.getRenderState()` feeds
   `GameScene`/`CanvasGame` at 60 fps; the store board mirror publishes at most
   every 100 ms, with independent adoption of externally replaced balls, bricks,
   and explosions. Click/resize publish immediately. Tests cover the publication

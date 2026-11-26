@@ -10,7 +10,7 @@ _No pending tasks._
 
 ## Completed
 
-- [TASK012 — Batch 5 Stages 1–2: pure simulation core and 10 Hz board mirror](../designs/DESIGN012-simulation-core.md) (2026-11-26, Stage 1 PR #117; Stage 2 working tree; save/offline stages deferred).
+- [TASK012 — Batch 5 Stages 1–2: pure simulation core and 10 Hz board mirror](../designs/DESIGN012-simulation-core.md) (2026-11-26, Stage 1 PR #117, Stage 2 PR #118; save/offline stages deferred).
 - [TASK011 — Batch 4 renderer comparison](TASK011-renderer-spike.md) (2026-11-26).
 - [TASK010] Latest Dependency Upgrade - Completed on 2026-09-28 (branch `chore/deps-upgrade-latest`). All deps bumped to latest; TypeScript held at 6.0.3 for `typescript-eslint` compatibility; audit clean; 304/304 tests pass.
 - [TASK009] Suggestion Set - Completed on 2026-06-11. All three PRs (PR1 pause, PR2 sound+settings, PR3 mobile+achievements) shipped on PR #46 (`feat/suggestion-set`). 304/304 tests pass.

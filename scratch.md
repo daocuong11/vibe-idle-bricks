@@ -85,10 +85,9 @@ Issues: [#103]; enables [#76] and [#81]. Update or close [#52] when the remainin
 - [x] Renderers read live runtime state; React reads the 10 Hz store mirror.
 - [ ] Batch reward/progression writes to meet the total <=10 store-writes/second budget.
 
-Stage 1 merged in #117 on 2026-11-26; Stage 2 is implemented on
-`feat/board-snapshots` and documented in
-`memory/designs/DESIGN012-simulation-core.md`. #103 stays open for Stages 3–4
-and reward-write batching.
+Stage 1 merged in #117 and Stage 2 merged in #118 on 2026-11-26, documented
+in `memory/designs/DESIGN012-simulation-core.md`. #103 stays open for Stages
+3–4 and reward-write batching.
 
 ## Batch 6 — Economy redesign (1–2 weeks, design first)
 
