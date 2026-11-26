@@ -17,6 +17,8 @@ import {
   COST_MULTIPLIER,
   STARTING_COINS,
   UPGRADE_COST_MULTIPLIER,
+  RUN_GOALS,
+  isRunGoalId,
 } from '../types';
 import type {
   BallType,
@@ -25,6 +27,7 @@ import type {
   Upgrades,
   PrestigeUpgrades,
   PrestigeUpgradeType,
+  RunGoalId,
   Explosion,
   SaveData,
   SavedBrickData,
@@ -110,6 +113,10 @@ interface GameStore {
   unlockedAchievements: UnlockedAchievements;
   /** Queue of achievement ids that have just been unlocked but not yet shown. */
   pendingAchievementUnlocks: string[];
+  /** Run-goal ids already rewarded this run; resets on prestige. */
+  claimedRunGoals: RunGoalId[];
+  /** In-memory queue drained by the run-goal toast hook. */
+  pendingRunGoalUnlocks: RunGoalId[];
   /** Seed/state for deterministic board RNG across saves. */
   boardSeed: number;
   /** Timestamp of the last save or update, used for offline earnings. */
@@ -289,6 +296,8 @@ interface GameStore {
    * @param ids - Unlocks that were actually shown. Omit to clear the whole queue.
    */
   drainPendingAchievementUnlocks: (ids?: string[]) => void;
+  /** Drains shown run-goal toasts from the queue. */
+  drainPendingRunGoalUnlocks: (ids?: RunGoalId[]) => void;
 
   /**
    * Calculates the current global damage multiplier.
@@ -316,6 +325,37 @@ interface GameStore {
 }
 
 const ZERO_DECIMAL = new Decimal(0);
+
+interface RunGoalClaim {
+  claimed: RunGoalId[];
+  blueprints: Decimal;
+  unlocked: RunGoalId[];
+}
+
+/** Awards every crossed, unclaimed run goal exactly once. */
+const claimRunGoals = (
+  bricksBroken: Decimal,
+  claimed: RunGoalId[],
+  blueprints: Decimal
+): RunGoalClaim => {
+  const claimedSet = new Set(claimed);
+  const unlocked: RunGoalId[] = [];
+  let reward = 0;
+
+  for (const goal of RUN_GOALS) {
+    if (!claimedSet.has(goal.id) && bricksBroken.gte(goal.threshold)) {
+      claimedSet.add(goal.id);
+      unlocked.push(goal.id);
+      reward += goal.rewardBlueprints;
+    }
+  }
+
+  return {
+    claimed: unlocked.length > 0 ? [...claimedSet] : claimed,
+    blueprints: reward > 0 ? blueprints.add(reward) : blueprints,
+    unlocked,
+  };
+};
 const SAVE_STORAGE_KEY = 'idleBricksSave';
 const MAX_PLAYTIME_DELTA_MS = 60_000;
 let lastPlayTimeTick = Date.now();
@@ -336,7 +376,7 @@ const accruePlayTime = (playTimeMs: number): number => {
 };
 
 /** Current persisted save schema. Version 0 means a pre-versioning legacy save. */
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 export interface BoardSnapshotPatch {
   balls: BallData[];
@@ -589,6 +629,7 @@ interface SaveDataBuilderState {
   canvasSize: { width: number; height: number };
   boardSeed: number;
   unlockedAchievements: UnlockedAchievements;
+  claimedRunGoals: RunGoalId[];
 }
 
 const serializeBrick = (brick: BrickData): SavedBrickData => ({
@@ -630,6 +671,7 @@ const buildSaveData = (state: SaveDataBuilderState): SaveData => ({
     bricks: state.bricks.filter((brick) => brick.health.gt(0)).map(serializeBrick),
   },
   unlockedAchievements: state.unlockedAchievements,
+  claimedRunGoals: state.claimedRunGoals,
   timestamp: Date.now(),
   version: SAVE_VERSION,
 });
@@ -776,6 +818,7 @@ const getLocalStorage = (): StorageLike | undefined => {
  * - v2 -> v3: adds Blueprints prestige currency (defaults to '0') and removes
  *   legacy tier/prestige hard caps.
  * - v3 -> v4: adds the prestige tree, lifetime records, best tier, and play time.
+ * - v4 -> v5: adds run-goal claims (defaults to none).
  */
 const migrateSaveData = (raw: Record<string, unknown>, fromVersion: number): SaveData => {
   let migrated: Record<string, unknown> = { ...raw };
@@ -799,6 +842,13 @@ const migrateSaveData = (raw: Record<string, unknown>, fromVersion: number): Sav
       lifetimeCoins: migrated.lifetimeCoins ?? '0',
       bestTier: parseInteger(migrated.currentTier, 1),
       playTimeMs: 0,
+      version: SAVE_VERSION,
+    };
+  }
+  if (fromVersion < 5) {
+    migrated = {
+      ...migrated,
+      claimedRunGoals: migrated.claimedRunGoals ?? [],
       version: SAVE_VERSION,
     };
   }
@@ -891,6 +941,15 @@ const parseSaveData = (saveData: SaveData, canvasWidth: number, canvasHeight: nu
   const currentTier = parseInteger(saveData.currentTier, 1);
   const bestTier = Math.max(currentTier, parseInteger(saveData.bestTier, 1));
 
+  const claimedRunGoals: RunGoalId[] = [];
+  if (Array.isArray(saveData.claimedRunGoals)) {
+    for (const id of saveData.claimedRunGoals) {
+      if (isRunGoalId(id) && !claimedRunGoals.includes(id)) {
+        claimedRunGoals.push(id);
+      }
+    }
+  }
+
   return {
     coins: parseDecimal(saveData.coins),
     bricksBroken: parseDecimal(saveData.bricksBroken),
@@ -901,6 +960,7 @@ const parseSaveData = (saveData: SaveData, canvasWidth: number, canvasHeight: nu
     lifetimeCoins: parseDecimal(saveData.lifetimeCoins),
     bestTier,
     playTimeMs: parseInteger(saveData.playTimeMs, 0),
+    claimedRunGoals,
     upgrades,
     ballCosts,
     upgradeCosts,
@@ -942,6 +1002,8 @@ export const useGameStore = create<GameStore>()(
     pendingSaveError: null,
     unlockedAchievements: getEmptyUnlocks(),
     pendingAchievementUnlocks: [],
+    claimedRunGoals: [],
+    pendingRunGoalUnlocks: [],
     boardSeed: nextBoardSeed(),
     timestamp: Date.now(),
 
@@ -1009,6 +1071,11 @@ export const useGameStore = create<GameStore>()(
         state.currentTier,
         calculateTierForBricks(nextBricksBroken)
       );
+      const goals = claimRunGoals(
+        nextBricksBroken,
+        state.claimedRunGoals,
+        state.blueprints
+      );
 
       const creditedCoins = sim.coinsEarned.mul(
         getPrestigeUpgradeMultiplier('insight', state.prestigeUpgrades.insight)
@@ -1022,6 +1089,12 @@ export const useGameStore = create<GameStore>()(
         totalBricksBroken: nextTotalBricksBroken,
         currentTier: nextTier,
         bestTier: Math.max(state.bestTier, nextTier),
+        blueprints: goals.blueprints,
+        claimedRunGoals: goals.claimed,
+        pendingRunGoalUnlocks: [
+          ...state.pendingRunGoalUnlocks,
+          ...goals.unlocked,
+        ],
         pendingOfflineMessage: formatOfflineMessage(creditedCoins, seconds),
         timestamp: Date.now(),
       });
@@ -1031,16 +1104,29 @@ export const useGameStore = create<GameStore>()(
     incrementBricksBroken: () => {
       const state = get();
       const nextBricksBroken = state.bricksBroken.add(1);
+      const goals = claimRunGoals(
+        nextBricksBroken,
+        state.claimedRunGoals,
+        state.blueprints
+      );
+      const newTier = calculateTierForBricks(nextBricksBroken);
+
       set({
         bricksBroken: nextBricksBroken,
         totalBricksBroken: state.totalBricksBroken.add(1),
+        currentTier: Math.max(state.currentTier, newTier),
+        bestTier: Math.max(state.bestTier, newTier),
+        ...(goals.unlocked.length > 0
+          ? {
+              blueprints: goals.blueprints,
+              claimedRunGoals: goals.claimed,
+              pendingRunGoalUnlocks: [
+                ...state.pendingRunGoalUnlocks,
+                ...goals.unlocked,
+              ],
+            }
+          : {}),
       });
-
-      // Check if we need to increase tier
-      const newTier = calculateTierForBricks(nextBricksBroken);
-      if (newTier > state.currentTier) {
-        set({ currentTier: newTier, bestTier: Math.max(state.bestTier, newTier) });
-      }
 
       get().checkAchievements();
     },
@@ -1105,6 +1191,17 @@ export const useGameStore = create<GameStore>()(
         }
       }
 
+      let nextBlueprints = state.blueprints;
+      if (blueprintReward > 0) {
+        nextBlueprints = nextBlueprints.add(blueprintReward);
+      }
+      const goals = hasBroken
+        ? claimRunGoals(nextBricksBroken, state.claimedRunGoals, nextBlueprints)
+        : null;
+      if (goals && goals.unlocked.length > 0) {
+        nextBlueprints = goals.blueprints;
+      }
+
       const patch: Partial<GameStore> = {};
       if (hasCoins) {
         patch.coins = nextCoins;
@@ -1121,9 +1218,16 @@ export const useGameStore = create<GameStore>()(
       if (nextUnlocked !== state.unlockedAchievements) {
         patch.unlockedAchievements = nextUnlocked;
         patch.pendingAchievementUnlocks = nextPendingUnlocks;
-        if (blueprintReward > 0) {
-          patch.blueprints = state.blueprints.add(blueprintReward);
-        }
+      }
+      if (nextBlueprints !== state.blueprints) {
+        patch.blueprints = nextBlueprints;
+      }
+      if (goals && goals.unlocked.length > 0) {
+        patch.claimedRunGoals = goals.claimed;
+        patch.pendingRunGoalUnlocks = [
+          ...state.pendingRunGoalUnlocks,
+          ...goals.unlocked,
+        ];
       }
       if (batch.board) {
         patch.balls = batch.board.balls;
@@ -1315,6 +1419,8 @@ export const useGameStore = create<GameStore>()(
         coins: new Decimal(0),
         bricksBroken: new Decimal(0),
         currentTier: 1,
+        claimedRunGoals: [],
+        pendingRunGoalUnlocks: [],
         // Upgrades and their costs are permanent; only the ball board resets.
         ballCosts: getDefaultBallCosts(),
         balls: [createBall('basic', width, height)],
@@ -1442,6 +1548,7 @@ export const useGameStore = create<GameStore>()(
           // Importing replaces the in-memory state entirely, so we discard
           // any queued toasts from the previous run.
           pendingAchievementUnlocks: [],
+          pendingRunGoalUnlocks: [],
           pendingSaveError: null,
         });
 
@@ -1491,6 +1598,7 @@ export const useGameStore = create<GameStore>()(
           // Loading a save replaces the in-memory state; clear any queued
           // toasts so we don't replay the previous session's unlocks.
           pendingAchievementUnlocks: [],
+          pendingRunGoalUnlocks: [],
         });
 
         // Calculate offline progress. This also resets the play-time tracker so
@@ -1548,6 +1656,8 @@ export const useGameStore = create<GameStore>()(
         boardSeed: nextBoardSeed(),
         unlockedAchievements: getEmptyUnlocks(),
         pendingAchievementUnlocks: [],
+        claimedRunGoals: [],
+        pendingRunGoalUnlocks: [],
         pendingSaveError: null,
         timestamp: Date.now(),
       });
@@ -1610,6 +1720,16 @@ export const useGameStore = create<GameStore>()(
       if (pending.length === 0) return;
       set({
         pendingAchievementUnlocks: ids
+          ? pending.filter((id) => !ids.includes(id))
+          : [],
+      });
+    },
+
+    drainPendingRunGoalUnlocks: (ids) => {
+      const pending = get().pendingRunGoalUnlocks;
+      if (pending.length === 0) return;
+      set({
+        pendingRunGoalUnlocks: ids
           ? pending.filter((id) => !ids.includes(id))
           : [],
       });

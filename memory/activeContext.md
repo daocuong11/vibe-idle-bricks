@@ -2,14 +2,19 @@
 
 ## Current Work Focus
 
+Batch 7d (**Run goals**) is implemented on `feat/run-goals` (2026-11-27):
+100/500/1,000-brick goals award 1/2/3 Blueprints once per run, show progress in
+Stats and a toast, reset on prestige, and persist in save v5. The offline
+multiplier is covered by the Insight node. 525 tests across 45 files; #85 closes
+on merge.
+
 Batch 7c (**Active focus + auto-buy**) is **complete** (2026-11-27,
 PR #122): clicking a brick now marks it as the
 priority target for targeting balls, with a yellow focus ring in Phaser and the
 Canvas spike; idle play falls back to the weakest brick. Settings gain an
 opt-in auto-buy that buys affordable upgrades/balls once per second while
 preserving a 50% coin reserve. Settings now hydrate at app start. 519 tests
-across 43 files; #84 closes on merge and #85 remains open for run goals/offline
-upgrade.
+across 43 files; #84 closed, and Batch 7d later completed #85.
 
 Issue #86 (**Prestige tree and lifetime records**) is **complete**
 (2026-11-26, PR #121): uncapped Might/Fortune/Insight Blueprint nodes,
@@ -75,6 +80,10 @@ TypeScript 6.0.3. The entries below are historical context from the November
 playtest and earlier batches.
 
 ## Recent Changes
+
+- Batch 7d: run goals (100/500/1,000 bricks → 1/2/3 Blueprints), Stats progress,
+  toast queue, save v5 migration, prestige/reset behavior. Offline multiplier is
+  handled by the existing Insight node.
 
 - Batch 7c (PR #122): click-to-mark priority targeting in the pure core, BoardSimulation,
   Phaser renderer, and Canvas spike; opt-in Settings auto-buy with a 50% coin

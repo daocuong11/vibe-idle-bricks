@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, within } from '@testing-library/react'
 import Decimal from 'break_infinity.js'
 import { Stats } from '../../src/components/Stats'
 import { useGameStore } from '../../src/store/gameStore'
@@ -35,6 +35,8 @@ const resetStore = () => {
     explosions: [],
     canvasSize: { width: 800, height: 500 },
     isPaused: false,
+    claimedRunGoals: [],
+    pendingRunGoalUnlocks: [],
   })
 }
 
@@ -86,6 +88,22 @@ describe('Stats', () => {
     
     expect(screen.getByText('3 / 100')).toBeInTheDocument()
     expect(screen.getByText('Balls')).toBeInTheDocument()
+  })
+
+  it('shows run goals and marks claimed rewards', () => {
+    useGameStore.setState({
+      bricksBroken: new Decimal(120),
+      claimedRunGoals: ['run_100'],
+    })
+    render(<Stats />)
+
+    const first = screen.getByTestId('run-goal-run_100')
+    expect(within(first).getByText('Warm-up')).toBeInTheDocument()
+    expect(within(first).getByText('✓')).toBeInTheDocument()
+
+    const second = screen.getByTestId('run-goal-run_500')
+    expect(within(second).getByText('Momentum')).toBeInTheDocument()
+    expect(within(second).getByText('+ 2 BP')).toBeInTheDocument()
   })
 
   it('should estimate coins per second and show the ball cap', () => {
