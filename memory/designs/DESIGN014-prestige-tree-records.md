@@ -1,7 +1,7 @@
 # DESIGN014 — Prestige Tree & Lifetime Records (Issue #86)
 
 Date: 2026-11-26
-Branch: `feat/prestige-tree`
+Branch: `feat/prestige-tree` (merged in PR #121)
 Scope: GitHub issue #86 only; no additional progression systems.
 
 ## EARS Requirements
