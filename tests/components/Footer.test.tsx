@@ -43,6 +43,7 @@ const resetStore = () => {
     canvasSize: { width: 800, height: 500 },
     isPaused: false,
     pendingOfflineMessage: null,
+    pendingSaveError: null,
   })
 }
 
@@ -97,6 +98,18 @@ describe('Footer', () => {
     await waitFor(() =>
       expect(screen.getByText(/game saved/i)).toBeInTheDocument()
     )
+  })
+
+  it('should not claim success when the save fails', async () => {
+    const user = userEvent.setup()
+    localStorageMock.setItem.mockImplementationOnce(() => {
+      throw new Error('QuotaExceededError')
+    })
+    renderFooter()
+
+    await user.click(screen.getByRole('button', { name: /save/i }))
+
+    expect(screen.queryByText(/game saved/i)).not.toBeInTheDocument()
   })
 
   it('should open confirm modal when reset clicked', async () => {

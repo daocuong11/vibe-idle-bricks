@@ -93,10 +93,12 @@ function GameApp() {
   const load = useGameStore((state) => state.load);
   const pendingOfflineMessage = useGameStore((state) => state.pendingOfflineMessage);
   const clearOfflineMessage = useGameStore((state) => state.clearOfflineMessage);
+  const pendingSaveError = useGameStore((state) => state.pendingSaveError);
   const setPaused = useGameStore((state) => state.setPaused);
   const { showToast } = useToast();
   // StrictMode re-runs mount effects; the ref survives that re-run.
   const hasLoadedRef = useRef(false);
+  const lastSaveErrorRef = useRef<string | null>(null);
 
   const handlePauseToggle = useCallback(() => {
     setPaused(!useGameStore.getState().isPaused);
@@ -130,6 +132,19 @@ function GameApp() {
       clearOfflineMessage();
     }
   }, [pendingOfflineMessage, showToast, clearOfflineMessage]);
+
+  // Show one toast per distinct save error; a successful save clears the
+  // message, which resets the ref for a future failure.
+  useEffect(() => {
+    if (!pendingSaveError) {
+      lastSaveErrorRef.current = null;
+      return;
+    }
+    if (lastSaveErrorRef.current === pendingSaveError) return;
+
+    lastSaveErrorRef.current = pendingSaveError;
+    showToast(pendingSaveError, 'error');
+  }, [pendingSaveError, showToast]);
 
   return (
     <div className="game-container">
