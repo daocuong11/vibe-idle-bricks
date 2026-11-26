@@ -9,16 +9,15 @@ Batch 1 (save integrity, #99) is **complete** (2026-11-26, PR #111):
 versioned local/export saves, total numeric validation, future-version
 rejection, storage-failure toasts, and an unversioned-save migration.
 
-The keyboard and audio halves of Batch 3 (#102/#79) are **implemented**.
-Keyboard shipped in PR #112 (consolidated from #109/#110); audio is complete on
-`fix/audio-gesture-throttle` and in review.
+The keyboard and audio halves of Batch 3 (#102/#79) are **complete**
+(2026-11-26): keyboard in PR #112 (consolidated from #109/#110) and audio in
+PR #114. Next is the rendering decision in Batch 4.
 
 Batch 2 (#100/#76/#101) is **complete** (2026-11-26, PR #113): pagehide and
 hidden-tab saves, 60-second-plus background catch-up through the shared
 `applyIdleEarnings` action with a 24-hour cap, and one measured 60-second coin
 rate (nominal × 0.1 fallback) for the HUD, ETAs, and 50% offline earnings.
-Design: `memory/designs/DESIGN010-lifecycle-and-measured-income.md`. Next is
-the rendering decision in Batch 4.
+Design: `memory/designs/DESIGN010-lifecycle-and-measured-income.md`.
 
 Current toolchain: React 19.3.0, Phaser 4.2.1, Vite 8.3.3, Vitest 5.0.3,
 TypeScript 6.0.3. The entries below are historical context from the November
@@ -26,7 +25,7 @@ playtest and earlier batches.
 
 ## Recent Changes
 
-- Batch 3 audio (#79), implemented on `fix/audio-gesture-throttle`: the app's
+- Batch 3 audio (#79, PR #114): the app's
   one-shot capture listeners call `AudioModule.unlock()` on the first
   pointerdown/keydown/touchstart and clean up on unlock or unmount. Context
   creation is gesture-gated; suspended contexts resume without duplicate
