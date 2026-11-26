@@ -101,6 +101,19 @@ export const calculateIncomePerSecond = (
     .mul(getPrestigeMultiplier(prestigeLevel));
 };
 
+export const formatOfflineMessage = (
+  offlineCoins: Decimal,
+  offlineSeconds: number
+): string | null => {
+  if (offlineCoins.lte(0)) return null;
+  const safeOfflineSeconds = Math.min(
+    Math.max(0, Number.isFinite(offlineSeconds) ? offlineSeconds : 0),
+    MAX_OFFLINE_SECONDS
+  );
+  const capped = offlineSeconds > MAX_OFFLINE_SECONDS ? ' (max)' : '';
+  return `Welcome back! You earned ${formatNumber(offlineCoins)} coins over ${formatElapsed(safeOfflineSeconds)}${capped}.`;
+};
+
 export const calculateOfflineEarnings = (
   liveIncomePerSecond: Decimal,
   offlineSeconds: number
@@ -114,14 +127,13 @@ export const calculateOfflineEarnings = (
     .mul(OFFLINE_EARNINGS_RATE)
     .floor();
 
-  if (offlineCoins.lte(0)) {
+  const message = formatOfflineMessage(offlineCoins, offlineSeconds);
+  if (!message) {
     return { coins: new Decimal(0), message: null };
   }
 
-  const capped = offlineSeconds > MAX_OFFLINE_SECONDS ? ' (max)' : '';
-
   return {
     coins: offlineCoins,
-    message: `Welcome back! You earned ${formatNumber(offlineCoins)} coins over ${formatElapsed(safeOfflineSeconds)}${capped}.`,
+    message,
   };
 };

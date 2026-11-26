@@ -311,4 +311,41 @@ describe('Versioned board save/restore and migration', () => {
 
     expect(refilledB).toEqual(refilledA);
   });
+
+  it('fast-forwards a restored v2 board deterministically when offline for 5 minutes', () => {
+    useGameStore.setState({
+      boardSeed: 424242,
+      coins: new Decimal(0),
+      bricks: [],
+      balls: [{ id: 'b-1', type: 'basic', x: 100, y: 380, dx: 2.2, dy: -2.2 }],
+    });
+    const sim = new BoardSimulation({ width: 800, height: 500 }, createEffects());
+    const saved = useGameStore.getState().exportSave();
+    sim.destroy();
+
+    const parsed = JSON.parse(saved) as Record<string, unknown>;
+    parsed.timestamp = Date.now() - 5 * 60 * 1000;
+    const oldSave = JSON.stringify(parsed);
+
+    localStorage.setItem('idleBricksSave', oldSave);
+    useGameStore.getState().reset();
+    localStorage.setItem('idleBricksSave', oldSave);
+    useGameStore.getState().load();
+
+    const firstCoins = useGameStore.getState().coins.toString();
+    const firstBroken = useGameStore.getState().bricksBroken.toString();
+    const firstMessage = useGameStore.getState().pendingOfflineMessage;
+    expect(new Decimal(firstCoins).gt(0)).toBe(true);
+    expect(new Decimal(firstBroken).gt(0)).toBe(true);
+    expect(firstMessage).toContain('Welcome back!');
+    expect(firstMessage).toContain('5m');
+
+    // Loading the exact same snapshot a second time produces identical results.
+    useGameStore.getState().reset();
+    localStorage.setItem('idleBricksSave', oldSave);
+    useGameStore.getState().load();
+
+    expect(useGameStore.getState().coins.toString()).toBe(firstCoins);
+    expect(useGameStore.getState().bricksBroken.toString()).toBe(firstBroken);
+  });
 });

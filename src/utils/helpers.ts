@@ -153,15 +153,16 @@ export const getAccessibleTierColor = (tier: number, mode: ColorblindMode): stri
 export const createBall = (
   type: BallType,
   canvasWidth: number,
-  canvasHeight: number
+  canvasHeight: number,
+  random: () => number = Math.random
 ): BallData => {
   const config = BALL_TYPES[type] || BALL_TYPES.basic;
-  const x = canvasWidth / 2 + (Math.random() - 0.5) * 200;
+  const x = canvasWidth / 2 + (random() - 0.5) * 200;
   const y = canvasHeight - 50;
-  const angle = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI / 3;
+  const angle = -Math.PI / 2 + (random() - 0.5) * Math.PI / 3;
 
   return {
-    id: generateId(),
+    id: generateId(random),
     type,
     x,
     y,

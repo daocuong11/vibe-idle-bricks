@@ -80,14 +80,15 @@ Issues: [#103]; enables [#76] and [#81]. Update or close [#52] when the remainin
 - [x] Port collision, damage, rewards, targeting, click handling, and brick generation; `BoardSimulation` remains the store/effects adapter.
 - [x] Tests: determinism, one-shot damage, batch damage, targeting, AoE, click, and seeded brick setup; core coverage 99.4% statements.
 - [x] Stage 2: live 60 fps renderer reads, 10 Hz board mirror, independent external ball/brick/explosion adoption, forced click/resize publication.
-- [ ] Stage 3: versioned board save/restore.
-- [ ] Stage 4: deterministic offline fast-forward.
+- [x] Stage 3: versioned board save/restore.
+- [x] Stage 4: deterministic offline fast-forward.
 - [x] Renderers read live runtime state; React reads the 10 Hz store mirror.
-- [ ] Batch reward/progression writes to meet the total <=10 store-writes/second budget.
+- [x] Batch reward/progression writes to meet the total <=10 store-writes/second budget.
 
-Stage 1 merged in #117 and Stage 2 merged in #118 on 2026-11-26, documented
-in `memory/designs/DESIGN012-simulation-core.md`. #103 stays open for Stages
-3–4 and reward-write batching.
+Stage 1 merged in #117 and Stage 2 merged in #118 on 2026-11-26; Stages 3–4
+and reward-write batching completed 2026-11-26, documented in
+`memory/designs/DESIGN012-simulation-core.md`. Ready to close #103 (and review
+#52).
 
 ## Batch 6 — Economy redesign (1–2 weeks, design first)
 
@@ -123,10 +124,10 @@ Issues: [#56], [#60], [#61].
 
 ## Batch 9 — Cleanup and parking lot
 
-- [ ] Verify and close [#81] if the allocation measurement passes.
-- [ ] Remove dead constants (`TRAIL_LENGTH_FACTOR`, `INITIAL_BRICKS_TO_GENERATE`) and the duplicate `FLOATING_TEXT_LIFE_MS`.
-- [ ] Use `MAX_SPEED_UPGRADE` in the max_speed achievement instead of hardcoded 50.
-- [ ] Delete this file once Batches 0–3 are done.
+- [x] Verify and close [#81] if the allocation measurement passes. (Audited `GameEffects.ts` & `GameRenderers.ts`; added shared `Graphics` reuse regression test.)
+- [x] Remove dead constants (`TRAIL_LENGTH_FACTOR`) and the duplicate `FLOATING_TEXT_LIFE_MS`. (`INITIAL_BRICKS_TO_GENERATE` remains live in `BoardSimulation.ts`.)
+- [x] Use `MAX_SPEED_UPGRADE` in the max_speed achievement instead of hardcoded 50.
+- [ ] Delete this file once the remaining batches are absorbed into epics.
 
 ## Parallel tracks
 

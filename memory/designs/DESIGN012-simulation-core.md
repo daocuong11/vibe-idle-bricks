@@ -50,13 +50,11 @@ The store remains a mirror for saves and React ball counts; it is not the render
 
 - **Stage 1 — complete:** pure core, adapter, seeded setup, deterministic tests.
 - **Stage 2 — complete:** live render reads, 10 Hz board mirror, independent external adoption, immediate click/resize publication.
-- **Stage 3 — next:** versioned board save/restore with seed, brick health/positions, and safe migration.
-- **Stage 4 — next:** deterministic offline fast-forward using the core.
-- **Follow-up:** batch reward/progression writes if the total store-write budget must be `<=10/second`.
+- **Stage 3 — complete:** versioned board save/restore (`SAVE_VERSION = 2`) with RNG seed/state, validated brick health/positions, v0/v1 migration, and fallback to fresh board generation on malformed board data.
+- **Stage 4 — complete:** deterministic headless offline fast-forward (`src/game/model/offline.ts`) with bounded 60 s direct simulation + deterministic extrapolation up to `MAX_OFFLINE_SECONDS` (24h), wired into `applyIdleEarnings` for restored boards.
+- **Reward-write batching — complete:** `BoardSimulation` accumulates destroyed-brick coins/counts in memory and flushes them with the 10 Hz board mirror via `applyBoardRewards` (`<= 10` total store writes/second), flushing immediately on click, resize, pause, save, export, prestige, and destroy.
 
 ## Validation
 
-- Full suite: **450 tests across 37 files**.
-- Core coverage from the Stage 1 focused run: **99.41% statements (170/171), 100% lines/functions, 87.34% branches**.
-- Stage 2 tests cover the 10 Hz publication ceiling, live render state while the mirror is stale, independent external ball/brick/explosion adoption, prestige/buy sync, click/resize publication, refill, and explosion aging.
-- Lint, typecheck, production build, and Canvas spike build pass.
+- Full suite: **468 tests across 39 files** (all passing).
+- Lint, typecheck (`tsc -b`), and production build (`vite build`) pass.

@@ -2,14 +2,14 @@
 
 ## Current Work Focus
 
-Batch 5 Stage 1 is **complete** (2026-11-26, PR #117): board rules now
-live in the platform-free `src/game/model/` core, with `BoardSimulation`
-retained as the store/effects adapter. Stage 2 is **complete**
-(2026-11-26, PR #118): renderers read live runtime state at 60 fps, while the
-store receives a board mirror at most every 100 ms; external ball/brick/
-explosion replacements are adopted independently. Board save/restore,
-deterministic offline fast-forward, and reward-write batching remain; #103
-stays open. Design: `memory/designs/DESIGN012-simulation-core.md`.
+Batch 5 (**Simulation core**, #103) is **complete** (2026-11-26):
+- Stage 1 (PR #117): platform-free `src/game/model/` core with `BoardSimulation` adapter.
+- Stage 2 (PR #118): live 60 fps renderer reads, 10 Hz store board mirror, independent external adoption.
+- Stage 3 & reward-write batching: `SAVE_VERSION = 2` board save/restore (dimensions, RNG seed/state, validated stringified-`Decimal` bricks, v0/v1 migration, deterministic ball spawn on restore) and `applyBoardRewards` batching coins/bricks/tier/achievements with the 10 Hz board mirror (`<= 10` total store writes/second; immediate flush on click/resize/pause/save/export/prestige/destroy).
+- Stage 4: deterministic headless offline fast-forward (`src/game/model/offline.ts`, bounded 60 s fixed-step simulation + deterministic extrapolation capped at 24h) wired into `applyIdleEarnings` for restored boards.
+Design: `memory/designs/DESIGN012-simulation-core.md`.
+
+Batch 9 (**Cleanup & parking lot**) is **complete** (2026-11-26): removed dead `TRAIL_LENGTH_FACTOR`, deduplicated `FLOATING_TEXT_LIFE_MS`, switched `max_speed` achievement to `MAX_SPEED_UPGRADE`, and verified #81 pooling/shared-graphics reuse (468 tests across 39 files).
 
 Batch 0 from `scratch.md` is **complete** (2026-11-26): PR CI, refreshed
 README/AGENTS/memory constants, `coverage/` untracked, and #51/#81 closed.

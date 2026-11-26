@@ -34,6 +34,7 @@ import {
   LIVE_INCOME_CALIBRATION,
   calculateIncomePerSecond,
   calculateOfflineEarnings,
+  formatOfflineMessage,
   getMeasuredIncomePerSecond,
   recordIncome,
   resetIncomeTracking,
@@ -44,6 +45,8 @@ import {
   type BrickDamageOperation,
   type BrickDamageResult,
 } from '../game/model/damage';
+import { simulateOfflineBoard } from '../game/model/offline';
+import { createSeededRandom } from '../game/model/rng';
 
 /**
  * Interface defining the entire state and actions of the game store.
@@ -736,6 +739,15 @@ const normalizeSaveData = (raw: unknown): SaveData | null => {
  * @returns {Partial<GameStore>} The partial state to merge.
  */
 const parseSaveData = (saveData: SaveData, canvasWidth: number, canvasHeight: number) => {
+  const parsedBoard = parseSavedBoard(
+    saveData.board,
+    canvasWidth,
+    canvasHeight,
+    nextBoardSeed()
+  );
+  const ballRng = saveData.board ? createSeededRandom(parsedBoard.boardSeed) : null;
+  const ballRandom = ballRng ? () => ballRng.next() : Math.random;
+
   // Recreate balls, ignoring invalid values from malformed saves.
   const savedBallTypes = Array.isArray(saveData.balls)
     ? saveData.balls.filter(isValidBallType)
@@ -743,7 +755,7 @@ const parseSaveData = (saveData: SaveData, canvasWidth: number, canvasHeight: nu
   const defaultBallTypes: BallType[] = ['basic'];
   const ballTypes = savedBallTypes.length > 0 ? savedBallTypes.slice(0, MAX_BALLS) : defaultBallTypes;
   const balls: BallData[] = ballTypes.map((type) => {
-    return createBall(type, canvasWidth, canvasHeight);
+    return createBall(type, canvasWidth, canvasHeight, ballRandom);
   });
 
   const ballCosts = getDefaultBallCosts();
@@ -780,13 +792,6 @@ const parseSaveData = (saveData: SaveData, canvasWidth: number, canvasHeight: nu
     }
   }
 
-  const parsedBoard = parseSavedBoard(
-    saveData.board,
-    canvasWidth,
-    canvasHeight,
-    nextBoardSeed()
-  );
-
   return {
     coins: parseDecimal(saveData.coins),
     bricksBroken: parseDecimal(saveData.bricksBroken),
@@ -796,7 +801,7 @@ const parseSaveData = (saveData: SaveData, canvasWidth: number, canvasHeight: nu
     ballCosts,
     upgradeCosts,
     currentTier: parseInteger(saveData.currentTier, 1, MAX_TIER),
-    balls: balls.length > 0 ? balls : [createBall('basic', canvasWidth, canvasHeight)],
+    balls: balls.length > 0 ? balls : [createBall('basic', canvasWidth, canvasHeight, ballRandom)],
     bricks: parsedBoard.bricks,
     boardSeed: parsedBoard.boardSeed,
     unlockedAchievements,
@@ -856,13 +861,50 @@ export const useGameStore = create<GameStore>()(
 
     applyIdleEarnings: (seconds, liveIncomePerSecond) => {
       const state = get();
-      const liveRate = liveIncomePerSecond ?? state.getIncomePerSecond();
-      const { coins, message } = calculateOfflineEarnings(liveRate, seconds);
+      if (liveIncomePerSecond || state.bricks.length === 0 || state.balls.length === 0) {
+        const liveRate = liveIncomePerSecond ?? state.getIncomePerSecond();
+        const { coins, message } = calculateOfflineEarnings(liveRate, seconds);
+        set({
+          coins: state.coins.add(coins),
+          pendingOfflineMessage: message,
+          timestamp: Date.now(),
+        });
+        return;
+      }
+
+      const sim = simulateOfflineBoard({
+        width: state.canvasSize.width,
+        height: state.canvasSize.height,
+        balls: state.balls,
+        bricks: state.bricks,
+        speedMultiplier: state.getSpeedMult(),
+        damageMultiplier: state.getDamageMult(),
+        coinMultiplier: state.getCoinMult(),
+        prestigeLevel: state.prestigeLevel,
+        currentTier: state.currentTier,
+        initialBricksBroken: state.bricksBroken,
+        elapsedSeconds: seconds,
+        seed: state.boardSeed,
+      });
+
+      const nextBricksBroken = state.bricksBroken.add(sim.bricksBroken);
+      const nextTotalBricksBroken = state.totalBricksBroken.add(sim.bricksBroken);
+      const nextTier = Math.max(
+        state.currentTier,
+        Math.min(MAX_TIER, 1 + nextBricksBroken.div(100).floor().toNumber())
+      );
+
       set({
-        coins: state.coins.add(coins),
-        pendingOfflineMessage: message,
+        coins: state.coins.add(sim.coinsEarned),
+        bricks: sim.finalBricks,
+        balls: sim.finalBalls,
+        bricksBroken: nextBricksBroken,
+        totalBricksBroken: nextTotalBricksBroken,
+        currentTier: nextTier,
+        pendingOfflineMessage: formatOfflineMessage(sim.coinsEarned, seconds),
         timestamp: Date.now(),
       });
+      get().checkAchievements();
     },
 
     incrementBricksBroken: () => {
