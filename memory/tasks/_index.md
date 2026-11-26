@@ -10,6 +10,7 @@ _No pending tasks._
 
 ## Completed
 
+- [TASK011 — Batch 4 renderer comparison](TASK011-renderer-spike.md) (2026-11-26).
 - [TASK010] Latest Dependency Upgrade - Completed on 2026-09-28 (branch `chore/deps-upgrade-latest`). All deps bumped to latest; TypeScript held at 6.0.3 for `typescript-eslint` compatibility; audit clean; 304/304 tests pass.
 - [TASK009] Suggestion Set - Completed on 2026-06-11. All three PRs (PR1 pause, PR2 sound+settings, PR3 mobile+achievements) shipped on PR #46 (`feat/suggestion-set`). 304/304 tests pass.
 - [TASK008] Dependency Upgrade & Error Fix-up - Completed on 2026-06-11 (PR #45)

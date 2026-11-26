@@ -65,12 +65,12 @@ Both halves complete: keyboard #112 (consolidated from #109/#110), audio #114.
 
 Issues: [#104], [#105], [#56], [#60], [#61].
 
-- [ ] Spike a Canvas2D renderer at DPR 2; compare 50-ball frame time, bundle size, sharpness, and code size.
+- [x] Spike a Canvas2D renderer at DPR 2; compare 50-ball frame time, bundle size, sharpness, and code size.
 - [x] Make the `phaser-engine` chunk real with `codeSplitting` (game engine 62 kB, Phaser 1.37 MB, no size warning).
-- [ ] Decide: adopt Canvas2D, keep Phaser, or revisit. Record the decision on [#105].
+- [x] Decide: adopt Canvas2D, keep Phaser, or revisit. Record the decision on [#105].
 - [x] #60 explosion rims and #61 ball silhouettes in the current Phaser renderer; #56 remains blocked on Phaser 4.
 
-Batch 4a merged in #115 on 2026-11-26; the Canvas2D spike/decision is the remaining work.
+Batch 4a merged in #115. Batch 4b keeps Phaser for Batch 5. The Canvas2D spike improved DPR 2 sharpness and bundle size but missed the 50-ball frame budget. See [the measurements and revisit criteria](memory/designs/DESIGN011-renderer-spike.md).
 
 ## Batch 5 — Simulation core (1–2 weeks)
 
