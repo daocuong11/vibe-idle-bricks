@@ -84,8 +84,8 @@ Issues: [#103]; enables [#76] and [#81]. Update or close [#52] when the remainin
 - [ ] Stage 4: deterministic offline fast-forward.
 - [ ] Move React reads to snapshots; at most 10 store writes per second.
 
-Stage 1 implemented 2026-11-26; PR pending. Stages 2–4 are sequenced in
-`memory/designs/DESIGN012-simulation-core.md`. The store-write budget is not solved.
+Stage 1 merged in #117 on 2026-11-26; #103 stays open for Stages 2–4, sequenced
+in `memory/designs/DESIGN012-simulation-core.md`. The store-write budget is not solved.
 
 ## Batch 6 — Economy redesign (1–2 weeks, design first)
 
