@@ -9,7 +9,12 @@ import {
   MAX_ROWS_FILL_FACTOR,
   ARENA_FLOOR_HEIGHT,
   getSpawnZoneHeight,
+  GOLD_BRICK_VALUE_MULTIPLIER,
+  ARMORED_BRICK_HEALTH_MULTIPLIER,
+  GOLD_BRICK_SPAWN_CHANCE,
+  ARMORED_BRICK_SPAWN_CHANCE,
 } from './constants';
+import type { BrickKind } from '../types';
 
 /**
  * Manages brick generation and screen-space placement.
@@ -73,10 +78,26 @@ export class BrickManager {
   private createBrick(x: number, y: number, baseTier: number): BrickData {
     const tierVariation = Math.floor(this.random.next() * 3) - 1;
     const tier = Math.max(1, baseTier + tierVariation);
-    const { maxHealth, value } = calculateBrickStats(tier);
+    const { maxHealth: baseHealth, value: baseValue } = calculateBrickStats(tier);
+
+    const roll = this.random.next();
+    const kind: BrickKind =
+      roll < GOLD_BRICK_SPAWN_CHANCE
+        ? 'gold'
+        : roll < GOLD_BRICK_SPAWN_CHANCE + ARMORED_BRICK_SPAWN_CHANCE
+          ? 'armored'
+          : 'normal';
+
+    const maxHealth =
+      kind === 'armored'
+        ? baseHealth.mul(ARMORED_BRICK_HEALTH_MULTIPLIER)
+        : baseHealth;
+    const value =
+      kind === 'gold' ? baseValue.mul(GOLD_BRICK_VALUE_MULTIPLIER) : baseValue;
 
     return {
       id: generateId(() => this.random.next()),
+      kind,
       x,
       y,
       width: BRICK_WIDTH,

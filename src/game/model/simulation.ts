@@ -1,6 +1,6 @@
 import Decimal from 'break_infinity.js';
 import { BALL_TYPES } from '../../types';
-import type { BallData, BrickData, Explosion } from '../../types';
+import type { BallData, BallType, BrickData, Explosion } from '../../types';
 import { SpatialGrid } from '../SpatialGrid';
 import {
   BALL_HIT_PARTICLE_COUNT,
@@ -9,6 +9,7 @@ import {
   CLICK_PARTICLE_COUNT,
   EXPLOSION_DAMAGE_MULTIPLIER,
   EXPLOSION_HIT_PARTICLE_COUNT,
+  ARMORED_BRICK_DAMAGE_MULTIPLIER,
   FIXED_STEP,
   clampAccumulator,
   clampFrameDelta,
@@ -74,11 +75,20 @@ export const refreshBoardWorld = (world: BoardWorld): void => {
 
 interface BoardDamageOptions {
   source: DamageSource;
+  /** Direct-hit ball type; omitted for clicks and explosions. */
+  ballType?: BallType;
   coinMultiplier: Decimal | number;
   particleCount: number;
   showCoinText: boolean;
   showDamageText?: (result: BrickDamageResult) => boolean;
 }
+
+/** Heavy, plasma, and explosive hits ignore armor; everything else is reduced. */
+const piercesArmor = (options: BoardDamageOptions): boolean =>
+  options.source === 'explosion' ||
+  options.ballType === 'heavy' ||
+  options.ballType === 'plasma' ||
+  options.ballType === 'explosive';
 
 /** Applies batched damage and records the presentation/reward intent as data. */
 export const damageBoardBricks = (
@@ -86,9 +96,19 @@ export const damageBoardBricks = (
   operations: BrickDamageOperation[],
   options: BoardDamageOptions
 ): BrickDamageResult[] => {
+  const brickById = new Map(world.bricks.map((brick) => [brick.id, brick]));
+  const armoredScale = piercesArmor(options)
+    ? new Decimal(1)
+    : new Decimal(ARMORED_BRICK_DAMAGE_MULTIPLIER);
+  const adjustedOperations = operations.map((operation) => {
+    const brick = brickById.get(operation.id);
+    if (brick?.kind !== 'armored' || armoredScale.eq(1)) return operation;
+    return { ...operation, damage: operation.damage.mul(armoredScale) };
+  });
+
   const { bricks, results } = resolveBrickDamageBatch(
     world.bricks,
-    operations,
+    adjustedOperations,
     world.time
   );
   world.bricks = bricks;
@@ -149,6 +169,7 @@ export const checkBrickCollisions = (
 
     damageBoardBricks(world, [{ id: brick.id, damage }], {
       source: 'ball',
+      ballType: ball.type,
       coinMultiplier: world.coinMultiplier,
       particleCount: BALL_HIT_PARTICLE_COUNT,
       showCoinText: true,

@@ -22,6 +22,16 @@ export const BRICK_WIDTH = 60;
 export const BRICK_HEIGHT = 25;
 export const BRICK_PADDING = 5;
 
+/** Gold bricks pay this multiple of their tier value. */
+export const GOLD_BRICK_VALUE_MULTIPLIER = 5;
+/** Armored bricks start with this multiple of their tier health. */
+export const ARMORED_BRICK_HEALTH_MULTIPLIER = 2;
+/** Damage multiplier for non-piercing hits against armored bricks. */
+export const ARMORED_BRICK_DAMAGE_MULTIPLIER = 0.25;
+/** Spawn probabilities; normal bricks take the remainder. */
+export const GOLD_BRICK_SPAWN_CHANCE = 0.1;
+export const ARMORED_BRICK_SPAWN_CHANCE = 0.1;
+
 export const SPEED_STEER_STRENGTH = 0.06;
 
 export const HIT_FLASH_DURATION_MS = 50;

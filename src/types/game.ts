@@ -52,9 +52,14 @@ export interface BallData {
 /**
  * Represents a brick in the game world.
  */
+/** Optional gameplay role for a brick. */
+export type BrickKind = 'normal' | 'gold' | 'armored';
+
 export interface BrickData {
   /** Unique identifier for the brick. */
   id: string;
+  /** Gameplay role; missing legacy values are treated as normal. */
+  kind?: BrickKind;
   /** The X coordinate of the top-left corner of the brick. */
   x: number;
   /** The Y coordinate of the top-left corner of the brick. */
@@ -136,6 +141,7 @@ export interface Explosion {
  */
 export interface SavedBrickData {
   id: string;
+  kind?: BrickKind;
   x: number;
   y: number;
   width: number;

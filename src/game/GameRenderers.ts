@@ -242,18 +242,38 @@ export class BrickRenderer extends BaseRenderer<BrickData> {
     const graphics = this.getGraphics(brick.id);
     graphics.clear();
 
-    const fillColor = isHitFlash ? 0xffffff : this.getFillColor(brick.tier);
-    const borderColor = this.getBorderColor(brick.tier);
+    const kind = brick.kind ?? 'normal';
+    const fillColor = isHitFlash
+      ? 0xffffff
+      : kind === 'gold'
+        ? 0xfbbf24
+        : kind === 'armored'
+          ? 0x64748b
+          : this.getFillColor(brick.tier);
+    const borderColor =
+      kind === 'gold'
+        ? 0xfde68a
+        : kind === 'armored'
+          ? 0x93c5fd
+          : this.getBorderColor(brick.tier);
     const healthPercent = brick.health.div(brick.maxHealth).toNumber();
 
     graphics.fillStyle(0x000000, 0.3);
     graphics.fillRect(brick.x + 2, brick.y + 2, brick.width, brick.height);
 
-    graphics.fillStyle(fillColor, isHitFlash ? 1 : 1);
+    graphics.fillStyle(fillColor, 1);
     graphics.fillRect(brick.x, brick.y, brick.width, brick.height);
 
     graphics.lineStyle(2, borderColor, 1);
     graphics.strokeRect(brick.x, brick.y, brick.width, brick.height);
+
+    if (kind === 'gold') {
+      graphics.fillStyle(0xfff7d6, 0.9);
+      graphics.fillCircle(brick.x + brick.width - 9, brick.y + 8, 3);
+    } else if (kind === 'armored') {
+      graphics.lineStyle(2, 0xbfdbfe, 0.8);
+      graphics.strokeRect(brick.x + 4, brick.y + 4, brick.width - 8, brick.height - 8);
+    }
 
     if (healthPercent < 1 && !isHitFlash) {
       graphics.fillStyle(0x000000, 0.4 * (1 - healthPercent));
@@ -290,7 +310,7 @@ export class BrickRenderer extends BaseRenderer<BrickData> {
         {
           fontSize: '12px',
           fontStyle: 'bold',
-          color: isHitFlash ? '#0f172a' : this.getTextColor(brick.tier),
+          color: isHitFlash ? '#0f172a' : this.getTextColor(brick),
         }
       );
       text.setOrigin(0.5);
@@ -298,14 +318,16 @@ export class BrickRenderer extends BaseRenderer<BrickData> {
       return;
     }
 
-    const color = isHitFlash ? '#0f172a' : this.getTextColor(brick.tier);
+    const color = isHitFlash ? '#0f172a' : this.getTextColor(brick);
     text.setText(brick.tier.toString());
     if (text.style.color !== color) text.setColor(color);
   }
 
-  private getTextColor(tier: number) {
+  private getTextColor(brick: BrickData) {
+    if (brick.kind === 'gold') return '#422006';
+    if (brick.kind === 'armored') return '#e2e8f0';
     const mode: ColorblindMode = useSettingsStore.getState().colorblindMode;
-    return getContrastTextColor(getAccessibleTierColor(tier, mode));
+    return getContrastTextColor(getAccessibleTierColor(brick.tier, mode));
   }
 
   private getFillColor(tier: number) {
