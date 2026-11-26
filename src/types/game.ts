@@ -99,6 +99,8 @@ export interface GameState {
   totalBricksBroken: Decimal;
   /** The current prestige level, which grants permanent bonuses. */
   prestigeLevel: number;
+  /** Persistent prestige currency earned on prestige. */
+  blueprints: Decimal;
   /** Current levels of purchased upgrades. */
   upgrades: Upgrades;
   /** Current cost to purchase the next ball of each type. */
@@ -162,6 +164,7 @@ export interface SaveData {
   bricksBroken?: string;
   totalBricksBroken?: string;
   prestigeLevel?: number;
+  blueprints?: string;
   upgrades?: Upgrades;
   ballCosts?: Record<string, string>;
   upgradeCosts?: Record<string, string>;
@@ -241,49 +244,113 @@ export const BALL_TYPES: Record<BallType, BallTypeConfig> = {
   },
 };
 
-/** Multiplier applied to stats per upgrade level (10% boost). */
+/** Additive speed boost applied per level (10% per level). */
 export const UPGRADE_MULTIPLIER = 0.1;
+/** Multiplicative base applied per level for damage and coinMult upgrades (8% compounding). */
+export const UPGRADE_MULT_BASE = 1.08;
 /** Coins granted on a fresh game so the first purchase is minutes away. */
 export const STARTING_COINS = 35;
 /** Upgrade cost growth; value per coin still decays ~9%/level, but slower than balls. */
 export const UPGRADE_COST_MULTIPLIER = 1.10;
 /** Damage and coin income are multiplied by this for every prestige level. */
-export const PRESTIGE_MULTIPLIER = 1.75;
+export const PRESTIGE_MULTIPLIER = 1.25;
 /** The fraction of theoretical earnings awarded for offline time (50%). */
 export const OFFLINE_EARNINGS_RATE = 0.5;
-/** The maximum tier level for bricks. */
-export const MAX_TIER = 20;
 /** The base threshold for the first prestige. */
 export const PRESTIGE_THRESHOLD = 10000;
 
 /**
- * Calculates the permanent coin multiplier for a prestige level.
- * Each level multiplies income, so prestiging repeatedly compounds.
- * @param prestigeLevel - The current prestige level.
- * @returns {number} The current coin multiplier.
+ * Calculates the multiplicative bonus for damage or coinMult upgrade levels.
+ * @param level - The current upgrade level.
+ * @returns {Decimal} The upgrade multiplier.
  */
-export const getPrestigeMultiplier = (prestigeLevel: number): number =>
-  Math.pow(PRESTIGE_MULTIPLIER, prestigeLevel);
+export const getUpgradeMultiplier = (level: number): Decimal => {
+  const safeLevel = Number.isFinite(level) ? Math.max(0, Math.floor(level)) : 0;
+  return new Decimal(UPGRADE_MULT_BASE).pow(safeLevel);
+};
+
+/**
+ * Calculates the permanent prestige multiplier for a prestige level.
+ * Each level multiplies income and damage, compounding without cap.
+ * @param prestigeLevel - The current prestige level.
+ * @returns {Decimal} The current prestige multiplier.
+ */
+export const getPrestigeMultiplier = (prestigeLevel: number): Decimal => {
+  const safeLevel = Number.isFinite(prestigeLevel) ? Math.max(0, Math.floor(prestigeLevel)) : 0;
+  return new Decimal(PRESTIGE_MULTIPLIER).pow(safeLevel);
+};
+
+/**
+ * Calculates the Blueprints awarded upon prestiging.
+ * Returns 0 below PRESTIGE_THRESHOLD, and scales with sqrt(bricks / threshold)
+ * and current tier (at least 1 Blueprint at threshold).
+ */
+export const calculateBlueprintsEarned = (
+  bricksBroken: Decimal,
+  currentTier: number
+): Decimal => {
+  const rendered = bricksBroken.toString();
+  if (
+    rendered === 'NaN' ||
+    rendered === 'Infinity' ||
+    rendered === '-Infinity' ||
+    !bricksBroken.gte(PRESTIGE_THRESHOLD)
+  ) {
+    return new Decimal(0);
+  }
+  const safeTier = Number.isFinite(currentTier) ? Math.max(0, Math.floor(currentTier)) : 1;
+  return bricksBroken
+    .div(PRESTIGE_THRESHOLD)
+    .sqrt()
+    .mul(1 + safeTier * 0.05)
+    .floor()
+    .max(1);
+};
+
+/**
+ * Calculates the progression tier reached for a given run's bricksBroken count.
+ * Advances 1 tier per 100 bricks without a hard tier cap.
+ */
+export const calculateTierForBricks = (bricksBroken: Decimal): number => {
+  const rendered = bricksBroken.toString();
+  if (rendered === 'NaN' || rendered === 'Infinity' || rendered === '-Infinity' || bricksBroken.lt(0)) {
+    return 1;
+  }
+  const tier = bricksBroken.div(100).floor().add(1);
+  if (tier.gte(Number.MAX_SAFE_INTEGER)) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+  return Math.max(1, tier.toNumber());
+};
 
 /** Maximum number of balls allowed in the game to prevent performance issues. */
-export const MAX_BALLS = 50;
+export const MAX_BALLS = 100;
 
 /** Maximum level for the speed upgrade to prevent physics tunneling. */
 export const MAX_SPEED_UPGRADE = 50;
 
-/** Maximum prestige level (no upper limit on bonuses, but caps progression). */
-export const MAX_PRESTIGE_LEVEL = 100;
-
 /** Cost scaling multiplier when purchasing balls. */
 export const COST_MULTIPLIER = 1.15;
 
+const TIER_WALL_START = 20;
+const BASE_HEALTH_TIER_20 = new Decimal(3 * (1 + 0.25 * (TIER_WALL_START - 1)));
+const BASE_VALUE_TIER_20 = new Decimal(Math.floor(Math.pow(TIER_WALL_START, 1.6)));
+
 /**
- * Calculates brick health and value based on tier.
- * Health grows slowly with tier (5.75x by tier 20) while value grows much
- * faster (120x), so a higher tier pays more for roughly the same work.
+ * Calculates brick health and value based on tier using unbounded Decimal math.
+ * Tiers 1-20 use a gentle early curve; tiers > 20 scale exponentially where
+ * health (1.18^(tier-20)) outpaces value (1.12^(tier-20)) to reward upgrades & prestige.
  */
 export const calculateBrickStats = (tier: number): { maxHealth: Decimal; value: Decimal } => {
-  const maxHealth = new Decimal(3 * (1 + 0.25 * (tier - 1)));
-  const value = new Decimal(Math.floor(Math.pow(tier, 1.6)));
+  const safeTier = Number.isFinite(tier) ? Math.max(1, Math.floor(tier)) : 1;
+  if (safeTier <= TIER_WALL_START) {
+    const maxHealth = new Decimal(3 * (1 + 0.25 * (safeTier - 1)));
+    const value = new Decimal(Math.floor(Math.pow(safeTier, 1.6)));
+    return { maxHealth, value };
+  }
+
+  const excessTiers = safeTier - TIER_WALL_START;
+  const maxHealth = BASE_HEALTH_TIER_20.mul(new Decimal(1.18).pow(excessTiers));
+  const value = BASE_VALUE_TIER_20.mul(new Decimal(1.12).pow(excessTiers)).floor();
   return { maxHealth, value };
 };

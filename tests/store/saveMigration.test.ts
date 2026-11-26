@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import Decimal from 'break_infinity.js'
-import { useGameStore } from '../../src/store/gameStore'
+import { SAVE_VERSION, useGameStore } from '../../src/store/gameStore'
 import { BALL_TYPES } from '../../src/types/game'
 
 // Mock localStorage
@@ -29,6 +29,7 @@ const resetStore = () => {
     bricksBroken: new Decimal(0),
     totalBricksBroken: new Decimal(0),
     prestigeLevel: 0,
+    blueprints: new Decimal(0),
     upgrades: { speed: 0, damage: 0, coinMult: 0 },
     ballCosts: {
       basic: new Decimal(BALL_TYPES.basic.baseCost),
@@ -212,5 +213,53 @@ describe('Save Migration and Backward Compatibility', () => {
 
     const state = useGameStore.getState()
     expect(state.balls.map((ball) => ball.type)).toEqual(['basic', 'sniper'])
+  })
+
+  it('migrates a v2 save fixture (with board, without blueprints) to v3 safely', () => {
+    const legacyV2Save = {
+      version: 2,
+      coins: '50000',
+      bricksBroken: '12500',
+      totalBricksBroken: '25000',
+      prestigeLevel: 2,
+      upgrades: { speed: 10, damage: 15, coinMult: 12 },
+      ballCosts: { basic: '50' },
+      upgradeCosts: {},
+      currentTier: 35,
+      balls: ['basic', 'plasma'],
+      board: {
+        width: 800,
+        height: 500,
+        seed: 7777,
+        bricks: [
+          {
+            id: 'v2-brick-1',
+            x: 40,
+            y: 110,
+            width: 60,
+            height: 25,
+            tier: 35,
+            health: '120',
+            maxHealth: '250',
+            value: '500',
+          },
+        ],
+      },
+      timestamp: Date.now(),
+    }
+
+    localStorageMock._setStore({ idleBricksSave: JSON.stringify(legacyV2Save) })
+    useGameStore.getState().load()
+
+    const state = useGameStore.getState()
+    expect(state.coins.eq(50000)).toBe(true)
+    expect(state.blueprints.eq(0)).toBe(true)
+    expect(state.currentTier).toBe(35)
+    expect(state.bricks).toHaveLength(1)
+    expect(state.bricks[0].tier).toBe(35)
+
+    const persisted = JSON.parse(localStorageMock.getItem('idleBricksSave') as string)
+    expect(persisted.version).toBe(SAVE_VERSION)
+    expect(persisted.blueprints).toBe('0')
   })
 })

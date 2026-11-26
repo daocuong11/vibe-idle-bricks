@@ -34,10 +34,11 @@ describe('formatMultiplier', () => {
     expect(formatMultiplier(0.5)).toBe('0.5')
   })
 
-  it('should fall back to compact formatting for large values', () => {
+  it('should fall back to compact formatting for large values and Decimal', () => {
     expect(formatMultiplier(10)).toBe('10')
     expect(formatMultiplier(999.999)).toBe('1000')
     expect(formatMultiplier(1234)).toBe('1.23K')
+    expect(formatMultiplier(new Decimal('1e50'))).toMatch(/^1\.00e\+?50$/)
   })
 })
 
@@ -174,6 +175,8 @@ describe('getTierColor', () => {
     expect(tier10).toBe('#fbbf24')
     expect(tier11).toBe('#fbbf24')
     expect(tier100).toBe('#fbbf24')
+    expect(getTierColor(0)).toBe('#4ade80')
+    expect(getTierColor(Number.NaN)).toBe('#4ade80')
   })
 
   it('should return valid hex colors', () => {

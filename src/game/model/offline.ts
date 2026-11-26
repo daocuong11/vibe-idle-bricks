@@ -5,8 +5,8 @@ import {
   calculateIncomePerSecond,
 } from '../../store/earnings';
 import {
-  MAX_TIER,
   OFFLINE_EARNINGS_RATE,
+  calculateTierForBricks,
   getPrestigeMultiplier,
   type BallData,
   type BrickData,
@@ -33,8 +33,8 @@ export interface OfflineSimulationInput {
   balls: BallData[];
   bricks: BrickData[];
   speedMultiplier: number;
-  damageMultiplier: number;
-  coinMultiplier: number;
+  damageMultiplier: Decimal | number;
+  coinMultiplier: Decimal | number;
   prestigeLevel: number;
   currentTier: number;
   initialBricksBroken?: Decimal;
@@ -110,7 +110,9 @@ export const simulateOfflineBoard = (
     random
   );
 
-  let activeTier = Math.max(1, Math.min(MAX_TIER, Math.floor(input.currentTier)));
+  let activeTier = Number.isFinite(input.currentTier)
+    ? Math.max(1, Math.floor(input.currentTier))
+    : 1;
   const baseBricksBroken = input.initialBricksBroken ?? new Decimal(0);
   const prestigeMultiplier = getPrestigeMultiplier(input.prestigeLevel);
 
@@ -151,7 +153,7 @@ export const simulateOfflineBoard = (
       simulatedCoins = simulatedCoins.add(event.coins.mul(prestigeMultiplier));
 
       const runBricks = baseBricksBroken.add(simulatedBricksBroken);
-      const nextTier = Math.min(MAX_TIER, 1 + runBricks.div(100).floor().toNumber());
+      const nextTier = calculateTierForBricks(runBricks);
       if (nextTier > activeTier) {
         activeTier = nextTier;
       }

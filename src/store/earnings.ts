@@ -53,6 +53,24 @@ export interface OfflineEarningsResult {
   message: string | null;
 }
 
+const calculateBallHitRateDecimal = (
+  ball: BallData,
+  speedMult: number,
+  damageMult: Decimal,
+  maxHealth: Decimal
+): Decimal => {
+  const config = BALL_TYPES[ball.type];
+  const ballDamage = damageMult.mul(config.damage);
+  const hits = ballDamage.gt(0)
+    ? Decimal.max(1, maxHealth.div(ballDamage).ceil())
+    : new Decimal(1);
+  let rate = new Decimal(config.speed * speedMult).div(hits);
+  if (config.explosive) rate = rate.mul(1.5);
+  if (config.pierce) rate = rate.mul(1.3);
+  if (config.targeting) rate = rate.mul(1.2);
+  return rate;
+};
+
 /**
  * Nominal bricks per second for the current board. Damage past a one-shot is
  * wasted, so each ball's rate is capped by the hits the brick actually needs.
@@ -60,19 +78,14 @@ export interface OfflineEarningsResult {
 export const calculateHitRate = (
   balls: BallData[],
   speedMult: number,
-  damageMult: number,
+  damageMult: Decimal | number,
   currentTier: number
 ): number => {
   const { maxHealth } = calculateBrickStats(currentTier);
+  const damageMultDecimal = damageMult instanceof Decimal ? damageMult : new Decimal(damageMult);
   let hitRate = 0;
   for (const ball of balls) {
-    const config = BALL_TYPES[ball.type];
-    const hits = Math.max(1, Math.ceil(maxHealth.toNumber() / (config.damage * damageMult)));
-    let rate = (config.speed * speedMult) / hits;
-    if (config.explosive) rate *= 1.5;
-    if (config.pierce) rate *= 1.3;
-    if (config.targeting) rate *= 1.2;
-    hitRate += rate;
+    hitRate += calculateBallHitRateDecimal(ball, speedMult, damageMultDecimal, maxHealth).toNumber();
   }
   return hitRate;
 };
@@ -89,13 +102,20 @@ export const LIVE_INCOME_CALIBRATION = 0.1;
 export const calculateIncomePerSecond = (
   balls: BallData[],
   speedMult: number,
-  damageMult: number,
-  coinMult: number,
+  damageMult: Decimal | number,
+  coinMult: Decimal | number,
   prestigeLevel: number,
   currentTier: number
 ): Decimal => {
-  const { value } = calculateBrickStats(currentTier);
-  return new Decimal(calculateHitRate(balls, speedMult, damageMult, currentTier))
+  const { maxHealth, value } = calculateBrickStats(currentTier);
+  const damageMultDecimal = damageMult instanceof Decimal ? damageMult : new Decimal(damageMult);
+  let totalHitRate = new Decimal(0);
+  for (const ball of balls) {
+    totalHitRate = totalHitRate.add(
+      calculateBallHitRateDecimal(ball, speedMult, damageMultDecimal, maxHealth)
+    );
+  }
+  return totalHitRate
     .mul(value)
     .mul(coinMult)
     .mul(getPrestigeMultiplier(prestigeLevel));

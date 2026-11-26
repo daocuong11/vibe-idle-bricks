@@ -1,13 +1,19 @@
 import { describe, it, expect } from 'vitest';
+import Decimal from 'break_infinity.js';
 import {
   BALL_TYPES,
   UPGRADE_MULTIPLIER,
+  UPGRADE_MULT_BASE,
   PRESTIGE_MULTIPLIER,
   PRESTIGE_THRESHOLD,
   OFFLINE_EARNINGS_RATE,
-  MAX_TIER,
+  MAX_BALLS,
+  MAX_SPEED_UPGRADE,
+  calculateBlueprintsEarned,
   calculateBrickStats,
+  calculateTierForBricks,
   getPrestigeMultiplier,
+  getUpgradeMultiplier,
   STARTING_COINS,
   UPGRADE_COST_MULTIPLIER,
 } from '../../src/types/game';
@@ -95,12 +101,14 @@ describe('Ball Types Configuration', () => {
 });
 
 describe('Game Constants', () => {
-  it('should extend tier cap to 20', () => {
-    expect(MAX_TIER).toBe(20);
+  it('should raise ball cap to 100 and keep speed cap at 50', () => {
+    expect(MAX_BALLS).toBe(100);
+    expect(MAX_SPEED_UPGRADE).toBe(50);
   });
 
-  it('should be 0.1 (10% per level)', () => {
+  it('should be 0.1 for additive speed and 1.08 for multiplicative upgrades', () => {
     expect(UPGRADE_MULTIPLIER).toBe(0.1);
+    expect(UPGRADE_MULT_BASE).toBe(1.08);
   });
 
   it('should grant 35 starting coins', () => {
@@ -111,8 +119,8 @@ describe('Game Constants', () => {
     expect(UPGRADE_COST_MULTIPLIER).toBe(1.1);
   });
 
-  it('should multiply income by 1.75 per prestige', () => {
-    expect(PRESTIGE_MULTIPLIER).toBe(1.75);
+  it('should multiply income by 1.25 per prestige', () => {
+    expect(PRESTIGE_MULTIPLIER).toBe(1.25);
   });
 
   it('should be 0.5 (50% of normal earnings)', () => {
@@ -130,15 +138,47 @@ describe('Game Constants', () => {
 
   describe('getPrestigeMultiplier', () => {
     it('should start at 1x', () => {
-      expect(getPrestigeMultiplier(0)).toBe(1);
+      expect(getPrestigeMultiplier(0).eq(1)).toBe(true);
     });
 
-    it('should compound multiplicatively', () => {
-      expect(getPrestigeMultiplier(1)).toBe(1.75);
-      expect(getPrestigeMultiplier(2)).toBeCloseTo(3.0625);
-      expect(getPrestigeMultiplier(5)).toBeCloseTo(16.413);
+    it('should compound multiplicatively as Decimal without cap', () => {
+      expect(getPrestigeMultiplier(1).toNumber()).toBeCloseTo(1.25);
+      expect(getPrestigeMultiplier(2).toNumber()).toBeCloseTo(1.5625);
+      expect(getPrestigeMultiplier(5).toNumber()).toBeCloseTo(Math.pow(1.25, 5));
+      expect(getPrestigeMultiplier(5000).gt('1e400')).toBe(true);
+    });
+  });
+
+  describe('getUpgradeMultiplier', () => {
+    it('should start at 1x and compound by 1.08 per level', () => {
+      expect(getUpgradeMultiplier(0).eq(1)).toBe(true);
+      expect(getUpgradeMultiplier(1).toNumber()).toBeCloseTo(1.08);
+      expect(getUpgradeMultiplier(10).toNumber()).toBeCloseTo(Math.pow(1.08, 10));
+      expect(getUpgradeMultiplier(10000).gt('1e300')).toBe(true);
+    });
+  });
+
+  describe('calculateBlueprintsEarned', () => {
+    it('returns 0 below threshold or on invalid input', () => {
+      expect(calculateBlueprintsEarned(new Decimal(0), 1).eq(0)).toBe(true);
+      expect(calculateBlueprintsEarned(new Decimal(PRESTIGE_THRESHOLD - 1), 20).eq(0)).toBe(true);
+      expect(calculateBlueprintsEarned(new Decimal('NaN'), 1).eq(0)).toBe(true);
     });
 
+    it('grants at least 1 Blueprint at threshold and scales with bricks and tier', () => {
+      expect(calculateBlueprintsEarned(new Decimal(PRESTIGE_THRESHOLD), 1).eq(1)).toBe(true);
+      expect(calculateBlueprintsEarned(new Decimal(PRESTIGE_THRESHOLD * 4), 1).eq(2)).toBe(true);
+      expect(calculateBlueprintsEarned(new Decimal(PRESTIGE_THRESHOLD * 4), 20).eq(4)).toBe(true);
+    });
+  });
+
+  describe('calculateTierForBricks', () => {
+    it('advances 1 tier per 100 bricks without a hard cap', () => {
+      expect(calculateTierForBricks(new Decimal(0))).toBe(1);
+      expect(calculateTierForBricks(new Decimal(99))).toBe(1);
+      expect(calculateTierForBricks(new Decimal(100))).toBe(2);
+      expect(calculateTierForBricks(new Decimal(2500))).toBe(26);
+    });
   });
 
   describe('calculateBrickStats tier curve', () => {
@@ -148,9 +188,9 @@ describe('Game Constants', () => {
       expect(value.toNumber()).toBe(1);
     });
 
-    it('should pay more per hit as the tier rises', () => {
+    it('should pay more per hit through tier 20', () => {
       let previous = 0;
-      for (let tier = 1; tier <= MAX_TIER; tier++) {
+      for (let tier = 1; tier <= 20; tier++) {
         const { maxHealth, value } = calculateBrickStats(tier);
         const coinsPerHealth = value.div(maxHealth).toNumber();
         expect(coinsPerHealth).toBeGreaterThan(previous);
@@ -158,11 +198,23 @@ describe('Game Constants', () => {
       }
     });
 
-    it('should soften health growth so higher tiers stay killable', () => {
+    it('should soften health growth up to tier 20 and apply exponential wall past tier 20', () => {
       const tier1 = calculateBrickStats(1).maxHealth;
-      const tier20 = calculateBrickStats(MAX_TIER).maxHealth;
-      expect(tier20.div(tier1).toNumber()).toBeLessThanOrEqual(6);
-      expect(calculateBrickStats(MAX_TIER).value.toNumber()).toBeGreaterThanOrEqual(100);
+      const tier20 = calculateBrickStats(20);
+      expect(tier20.maxHealth.div(tier1).toNumber()).toBeLessThanOrEqual(6);
+      expect(tier20.value.toNumber()).toBe(120);
+
+      const tier21 = calculateBrickStats(21);
+      expect(tier21.maxHealth.toNumber()).toBeCloseTo(17.25 * 1.18);
+      expect(tier21.value.toNumber()).toBe(Math.floor(120 * 1.12));
+
+      const tier30 = calculateBrickStats(30);
+      expect(tier30.maxHealth.div(tier20.maxHealth).toNumber()).toBeCloseTo(Math.pow(1.18, 10));
+      expect(tier30.maxHealth.div(tier30.value).gt(tier20.maxHealth.div(tier20.value))).toBe(true);
+
+      const tier5000 = calculateBrickStats(5000);
+      expect(tier5000.maxHealth.gt('1e300')).toBe(true);
+      expect(tier5000.value.gt('1e200')).toBe(true);
     });
   });
 });

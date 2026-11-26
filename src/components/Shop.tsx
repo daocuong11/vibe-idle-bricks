@@ -1,7 +1,17 @@
 import { useMemo, useState, useId } from 'react';
-import type Decimal from 'break_infinity.js';
+import Decimal from 'break_infinity.js';
 import { planMaxUpgrade, useGameStore } from '../store';
-import { type BallType, BALL_TYPES, PRESTIGE_THRESHOLD, getPrestigeMultiplier, MAX_BALLS, MAX_SPEED_UPGRADE, MAX_PRESTIGE_LEVEL, UPGRADE_MULTIPLIER } from '../types';
+import {
+  type BallType,
+  BALL_TYPES,
+  PRESTIGE_THRESHOLD,
+  calculateBlueprintsEarned,
+  getPrestigeMultiplier,
+  getUpgradeMultiplier,
+  MAX_BALLS,
+  MAX_SPEED_UPGRADE,
+  UPGRADE_MULTIPLIER,
+} from '../types';
 import { formatMultiplier, formatNumber } from '../utils';
 import { ShoppingCart, Zap, Crosshair, Bomb, Circle, Hexagon, Star, ArrowUpCircle, Coins, TrendingUp } from 'lucide-react';
 import { Modal } from './Modal';
@@ -21,11 +31,19 @@ const BallIcons: Record<BallType, React.ElementType> = {
   sniper: Crosshair,
 };
 
-/** Current and next total effect, e.g. "×1.3 → ×1.4" (trailing zeros trimmed). */
-const effectText = (level: number, maxed = false): string => {
-  const current = formatMultiplier(1 + level * UPGRADE_MULTIPLIER);
+/** Current and next total effect, e.g. "×1 → ×1.1" for speed or "×1 → ×1.08" for multiplicative upgrades. */
+const effectText = (type: UpgradeType, level: number, maxed = false): string => {
+  const currentValue =
+    type === 'speed'
+      ? 1 + level * UPGRADE_MULTIPLIER
+      : getUpgradeMultiplier(level);
+  const current = formatMultiplier(currentValue);
   if (maxed) return `Max: ×${current}`;
-  return `×${current} → ×${formatMultiplier(1 + (level + 1) * UPGRADE_MULTIPLIER)}`;
+  const nextValue =
+    type === 'speed'
+      ? 1 + (level + 1) * UPGRADE_MULTIPLIER
+      : getUpgradeMultiplier(level + 1);
+  return `×${current} → ×${formatMultiplier(nextValue)}`;
 };
 
 /** Short estimate for "time until affordable"; empty when income is zero. */
@@ -57,7 +75,9 @@ export function Shop() {
   const upgradeCosts = useGameStore((state) => state.upgradeCosts);
   const upgrades = useGameStore((state) => state.upgrades);
   const bricksBroken = useGameStore((state) => state.bricksBroken);
+  const currentTier = useGameStore((state) => state.currentTier);
   const prestigeLevel = useGameStore((state) => state.prestigeLevel);
+  const blueprints = useGameStore((state) => state.blueprints);
   const canPrestige = useGameStore((state) => state.canPrestige);
   const buyBall = useGameStore((state) => state.buyBall);
   const buyUpgrade = useGameStore((state) => state.buyUpgrade);
@@ -95,8 +115,8 @@ export function Shop() {
   const incomePerSecond = useGameStore.getState().getIncomePerSecond();
   const nextPrestigeMult = getPrestigeMultiplier(prestigeLevel + 1);
   const canDoPrestige = canPrestige();
-  const isMaxPrestige = prestigeLevel >= MAX_PRESTIGE_LEVEL;
-  const bricksNeeded = Math.max(0, PRESTIGE_THRESHOLD - bricksBroken.toNumber());
+  const blueprintsEarned = calculateBlueprintsEarned(bricksBroken, currentTier);
+  const bricksNeeded = Decimal.max(0, new Decimal(PRESTIGE_THRESHOLD).sub(bricksBroken));
 
   return (
     <>
@@ -159,7 +179,7 @@ export function Shop() {
               type="speed"
               name="Speed Boost"
               icon={Zap}
-              description={`Speed ${effectText(upgrades.speed, upgrades.speed >= MAX_SPEED_UPGRADE)}`}
+              description={`Speed ${effectText('speed', upgrades.speed, upgrades.speed >= MAX_SPEED_UPGRADE)}`}
               cost={upgradeCosts.speed}
               coins={coins}
               level={upgrades.speed}
@@ -172,7 +192,7 @@ export function Shop() {
               type="damage"
               name="Power Boost"
               icon={ArrowUpCircle}
-              description={`Damage ${effectText(upgrades.damage)}`}
+              description={`Damage ${effectText('damage', upgrades.damage)}`}
               cost={upgradeCosts.damage}
               coins={coins}
               level={upgrades.damage}
@@ -184,7 +204,7 @@ export function Shop() {
               type="coinMult"
               name="Coin Multiplier"
               icon={Coins}
-              description={`Coins ${effectText(upgrades.coinMult)}`}
+              description={`Coins ${effectText('coinMult', upgrades.coinMult)}`}
               cost={upgradeCosts.coinMult}
               coins={coins}
               level={upgrades.coinMult}
@@ -200,24 +220,23 @@ export function Shop() {
         <div className="shop-section" role="tabpanel" id={`${shopId}-panel-prestige`} aria-labelledby={`${shopId}-tab-prestige`}>
           <h3>Prestige</h3>
           <button
-            className={`shop-item prestige-btn ${canDoPrestige && !isMaxPrestige ? 'affordable' : ''}`}
-            disabled={!canDoPrestige || isMaxPrestige}
+            className={`shop-item prestige-btn ${canDoPrestige ? 'affordable' : ''}`}
+            disabled={!canDoPrestige}
             onClick={handlePrestige}
           >
             <span className="item-name"><TrendingUp size={16} className="inline-block mr-2" aria-hidden="true" /> Prestige</span>
             <span className="item-desc">Reset for permanent bonuses</span>
             <span className="item-desc">
-              {isMaxPrestige
-                ? `Max level — ×${formatMultiplier(prestigeMult)} damage & coins`
-                : canDoPrestige
-                  ? `Next: ×${formatMultiplier(nextPrestigeMult)} damage & coins (Current: ×${formatMultiplier(prestigeMult)})`
-                  : `Break ${formatNumber(bricksNeeded)} more bricks`}
+              Blueprints: {formatNumber(blueprints)} · +{formatNumber(blueprintsEarned)} Blueprints
             </span>
-            {!isMaxPrestige && (
-              <span className="item-desc">
-                {formatNumber(bricksBroken)} / {formatNumber(PRESTIGE_THRESHOLD)} bricks this run
-              </span>
-            )}
+            <span className="item-desc">
+              {canDoPrestige
+                ? `Next: ×${formatMultiplier(nextPrestigeMult)} damage & coins (Current: ×${formatMultiplier(prestigeMult)})`
+                : `Break ${formatNumber(bricksNeeded)} more bricks`}
+            </span>
+            <span className="item-desc">
+              {formatNumber(bricksBroken)} / {formatNumber(PRESTIGE_THRESHOLD)} bricks this run
+            </span>
           </button>
         </div>
       )}
@@ -234,10 +253,10 @@ export function Shop() {
       onCancel={() => setPrestigeOpen(false)}
     >
       <p>
-        Prestige raises your damage and coin multiplier from ×{formatMultiplier(prestigeMult)} to ×
-        {formatMultiplier(nextPrestigeMult)}.
+        Prestige grants +{formatNumber(blueprintsEarned)} Blueprints and raises your damage and coin multiplier from ×
+        {formatMultiplier(prestigeMult)} to ×{formatMultiplier(nextPrestigeMult)}.
       </p>
-      <p>Keeps: upgrades, achievements, and the prestige bonus.</p>
+      <p>Keeps: blueprints, upgrades, achievements, and the prestige bonus.</p>
       <p>Resets: coins, balls and their costs, tier, and bricks broken this run.</p>
     </Modal>
     </>

@@ -40,9 +40,10 @@ export const formatNumber = (num: Decimal | number): string => {
  * @param value - The multiplier to format.
  * @returns {string} The formatted multiplier without a suffix.
  */
-export const formatMultiplier = (value: number): string => {
-  if (value >= 1000) return formatNumber(value);
-  return value.toFixed(2).replace(/\.?0+$/, '');
+export const formatMultiplier = (value: Decimal | number): string => {
+  const decimal = value instanceof Decimal ? value : new Decimal(value);
+  if (decimal.gte(1000)) return formatNumber(decimal);
+  return decimal.toNumber().toFixed(2).replace(/\.?0+$/, '');
 };
 
 /**
@@ -93,7 +94,10 @@ export const getTierColor = (tier: number): string => {
     '#8b5cf6', // Violet - Tier 9
     '#fbbf24', // Amber - Tier 10+
   ];
-  return colors[Math.min(tier - 1, colors.length - 1)];
+  const index = Number.isFinite(tier)
+    ? Math.max(0, Math.min(Math.floor(tier) - 1, colors.length - 1))
+    : 0;
+  return colors[index];
 };
 
 export type ColorblindMode = 'off' | 'protanopia' | 'deuteranopia' | 'tritanopia';

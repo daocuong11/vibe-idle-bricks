@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import Decimal from 'break_infinity.js'
 import { planMaxUpgrade, SAVE_VERSION, useGameStore } from '../../src/store/gameStore'
-import { BALL_TYPES, PRESTIGE_THRESHOLD, MAX_TIER, MAX_BALLS, MAX_SPEED_UPGRADE } from '../../src/types/game'
+import { BALL_TYPES, PRESTIGE_THRESHOLD, MAX_BALLS, MAX_SPEED_UPGRADE, UPGRADE_MULT_BASE, PRESTIGE_MULTIPLIER } from '../../src/types/game'
 import {
   getMeasuredIncomePerSecond,
   recordIncome,
@@ -36,6 +36,7 @@ const resetStore = () => {
     bricksBroken: new Decimal(0),
     totalBricksBroken: new Decimal(0),
     prestigeLevel: 0,
+    blueprints: new Decimal(0),
     upgrades: { speed: 0, damage: 0, coinMult: 0 },
     ballCosts: {
       basic: new Decimal(BALL_TYPES.basic.baseCost),
@@ -109,8 +110,8 @@ describe('gameStore', () => {
       useGameStore.setState({ prestigeLevel: 1 })
       const store = useGameStore.getState()
       store.addCoins(new Decimal(100))
-      // Prestige level 1 multiplies income by 1.75
-      expect(useGameStore.getState().coins.eq(175)).toBe(true)
+      // Prestige level 1 multiplies income by 1.25
+      expect(useGameStore.getState().coins.eq(125)).toBe(true)
     })
 
     it('should handle large Decimal values', () => {
@@ -145,7 +146,7 @@ describe('gameStore', () => {
       recordIncome(new Decimal(6))
       useGameStore.getState().addCoins(new Decimal(10))
 
-      expect(getMeasuredIncomePerSecond().eq(new Decimal(23.5).div(60))).toBe(true)
+      expect(getMeasuredIncomePerSecond().eq(new Decimal(18.5).div(60))).toBe(true)
     })
 
     it('applies half the live rate, a 24-hour cap, and updates the save timestamp', () => {
@@ -181,7 +182,7 @@ describe('gameStore', () => {
 
       useGameStore.getState().applyIdleEarnings(3600)
 
-      expect(useGameStore.getState().coins.eq(472)).toBe(true)
+      expect(useGameStore.getState().coins.eq(225)).toBe(true)
     })
 
     it('clears measured income on reset and load', () => {
@@ -228,11 +229,11 @@ describe('gameStore', () => {
       expect(useGameStore.getState().currentTier).toBe(2)
     })
 
-    it('should cap tier at MAX_TIER', () => {
-      useGameStore.setState({ bricksBroken: new Decimal(MAX_TIER * 100) })
+    it('should advance past tier 20 without a hard tier cap', () => {
+      useGameStore.setState({ bricksBroken: new Decimal(2500) })
       const store = useGameStore.getState()
       store.incrementBricksBroken()
-      expect(useGameStore.getState().currentTier).toBe(MAX_TIER)
+      expect(useGameStore.getState().currentTier).toBe(26)
     })
   })
 
@@ -379,13 +380,17 @@ describe('gameStore', () => {
       expect(state.ballCosts.basic.eq(BALL_TYPES.basic.baseCost)).toBe(true)
     })
 
-    it('should increment prestige level', () => {
+    it('should increment prestige level and award blueprints without a cap', () => {
       useGameStore.setState({ 
-        bricksBroken: new Decimal(PRESTIGE_THRESHOLD),
+        bricksBroken: new Decimal(PRESTIGE_THRESHOLD * 4),
+        currentTier: 20,
+        prestigeLevel: 150,
+        blueprints: new Decimal(5),
         canvasSize: { width: 800, height: 500 }
       })
-      useGameStore.getState().prestige()
-      expect(useGameStore.getState().prestigeLevel).toBe(1)
+      expect(useGameStore.getState().prestige()).toBe(true)
+      expect(useGameStore.getState().prestigeLevel).toBe(151)
+      expect(useGameStore.getState().blueprints.eq(9)).toBe(true)
     })
 
     it('should preserve total bricks broken across prestige', () => {
@@ -547,25 +552,25 @@ describe('gameStore', () => {
   })
 
   describe('multiplier calculations', () => {
-    it('should calculate damage multiplier correctly', () => {
+    it('should calculate multiplicative damage multiplier as Decimal', () => {
       useGameStore.setState({ upgrades: { speed: 0, damage: 5, coinMult: 0 } })
-      // 5 levels * 0.1 = 0.5, so 1 + 0.5 = 1.5
-      expect(useGameStore.getState().getDamageMult()).toBe(1.5)
+      const expected = new Decimal(UPGRADE_MULT_BASE).pow(5)
+      expect(useGameStore.getState().getDamageMult().toNumber()).toBeCloseTo(expected.toNumber())
     })
 
     it('should include the prestige multiplier in damage', () => {
       useGameStore.setState({ prestigeLevel: 2, upgrades: { speed: 0, damage: 5, coinMult: 0 } })
-      // (1 + 5*0.1) * 1.75^2 = 1.5 * 3.0625
-      expect(useGameStore.getState().getDamageMult()).toBeCloseTo(4.59375)
+      const expected = new Decimal(UPGRADE_MULT_BASE).pow(5).mul(new Decimal(PRESTIGE_MULTIPLIER).pow(2))
+      expect(useGameStore.getState().getDamageMult().toNumber()).toBeCloseTo(expected.toNumber())
     })
 
-    it('should calculate coin multiplier correctly', () => {
+    it('should calculate multiplicative coin multiplier as Decimal', () => {
       useGameStore.setState({ upgrades: { speed: 0, damage: 0, coinMult: 10 } })
-      // 10 levels * 0.1 = 1.0, so 1 + 1.0 = 2.0
-      expect(useGameStore.getState().getCoinMult()).toBe(2)
+      const expected = new Decimal(UPGRADE_MULT_BASE).pow(10)
+      expect(useGameStore.getState().getCoinMult().toNumber()).toBeCloseTo(expected.toNumber())
     })
 
-    it('should calculate speed multiplier correctly', () => {
+    it('should calculate additive speed multiplier correctly', () => {
       useGameStore.setState({ upgrades: { speed: 3, damage: 0, coinMult: 0 } })
       // 3 levels * 0.1 = 0.3, so 1 + 0.3 = 1.3
       expect(useGameStore.getState().getSpeedMult()).toBe(1.3)
@@ -604,6 +609,7 @@ describe('gameStore', () => {
         coins: new Decimal(10000),
         bricksBroken: new Decimal(500),
         prestigeLevel: 3,
+        blueprints: new Decimal(12),
         currentTier: 5,
         canvasSize: { width: 800, height: 500 }
       })
@@ -614,6 +620,7 @@ describe('gameStore', () => {
       expect(state.coins.eq(35)).toBe(true)
       expect(state.bricksBroken.eq(0)).toBe(true)
       expect(state.prestigeLevel).toBe(0)
+      expect(state.blueprints.eq(0)).toBe(true)
       expect(state.currentTier).toBe(1)
     })
 
@@ -847,12 +854,12 @@ describe('gameStore', () => {
 
       resetStore()
       localStorageMock.clear()
-      localStorageMock._setStore({ idleBricksSave: JSON.stringify(save(1)) })
+      localStorageMock._setStore({ idleBricksSave: JSON.stringify(save(2)) })
       useGameStore.getState().load()
       const prestigeCoins = useGameStore.getState().coins.toNumber()
 
-      // 1.75x damage cuts a tier-1 brick from 3 hits to 2 (1.5x) and coins 1.75x.
-      expect(prestigeCoins / plainCoins).toBeCloseTo(1.5 * 1.75, 1)
+      // 1.25^2 = 1.5625x damage cuts a tier-1 brick from 3 hits to 2 (1.5x) and coins 1.5625x.
+      expect(prestigeCoins / plainCoins).toBeCloseTo(1.5 * 1.5625, 1)
     })
 
     it('should not re-apply offline earnings when load runs twice', () => {
@@ -1174,6 +1181,7 @@ describe('gameStore', () => {
         bricksBroken: new Decimal(500),
         totalBricksBroken: new Decimal(2000),
         prestigeLevel: 5,
+        blueprints: new Decimal(27),
         upgrades: { speed: 10, damage: 8, coinMult: 6 },
         currentTier: 7,
         balls: [
@@ -1198,6 +1206,7 @@ describe('gameStore', () => {
       expect(state.bricksBroken.eq(500)).toBe(true)
       expect(state.totalBricksBroken.eq(2000)).toBe(true)
       expect(state.prestigeLevel).toBe(5)
+      expect(state.blueprints.eq(27)).toBe(true)
       expect(state.upgrades).toEqual({ speed: 10, damage: 8, coinMult: 6 })
       expect(state.currentTier).toBe(7)
       expect(state.balls.map(b => b.type)).toEqual(['sniper', 'explosive'])

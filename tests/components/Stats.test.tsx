@@ -14,6 +14,7 @@ const resetStore = () => {
     bricksBroken: new Decimal(0),
     totalBricksBroken: new Decimal(0),
     prestigeLevel: 0,
+    blueprints: new Decimal(0),
     upgrades: { speed: 0, damage: 0, coinMult: 0 },
     ballCosts: {
       basic: new Decimal(BALL_TYPES.basic.baseCost),
@@ -83,7 +84,7 @@ describe('Stats', () => {
     })
     render(<Stats />)
     
-    expect(screen.getByText('3 / 50')).toBeInTheDocument()
+    expect(screen.getByText('3 / 100')).toBeInTheDocument()
     expect(screen.getByText('Balls')).toBeInTheDocument()
   })
 
@@ -94,7 +95,15 @@ describe('Stats', () => {
     render(<Stats />)
 
     expect(screen.getByText('≈ 0.1/s')).toBeInTheDocument()
-    expect(screen.getByText('1 / 50')).toBeInTheDocument()
+    expect(screen.getByText('1 / 100')).toBeInTheDocument()
+  })
+
+  it('should render blueprints count', () => {
+    useGameStore.setState({ blueprints: new Decimal(42) })
+    render(<Stats />)
+
+    expect(screen.getByText('Blueprints')).toBeInTheDocument()
+    expect(screen.getByText('42')).toBeInTheDocument()
   })
 
   it('should switch from fallback to measured income when gameplay credits coins', () => {

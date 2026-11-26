@@ -125,7 +125,7 @@ describe('calculateIncomePerSecond', () => {
     const base = calculateIncomePerSecond([createBall('basic')], 1, 1, 1, 0, 1)
     const boosted = calculateIncomePerSecond([createBall('basic')], 1, 1, 2, 1, 1)
 
-    expect(boosted.div(base).toNumber()).toBeCloseTo(3.5, 10)
+    expect(boosted.div(base).toNumber()).toBeCloseTo(2.5, 10)
   })
 
   it('caps extra damage at the hits a brick actually needs', () => {
@@ -138,17 +138,30 @@ describe('calculateIncomePerSecond', () => {
   it('counts prestige damage while bricks take multiple hits', () => {
     const balls = [createBall('basic')]
     const base = calculateIncomePerSecond(balls, 1, 1, 1, 0, 1)
-    // prestige 1: damage 1.75 -> 2 hits instead of 3 (1.5x rate), coins 1.75x
-    const prestiged = calculateIncomePerSecond(balls, 1, 1.75, 1, 1, 1)
-    expect(prestiged.div(base).toNumber()).toBeCloseTo(1.5 * 1.75, 10)
+    // prestige 2: damage 1.5625 -> 2 hits instead of 3 (1.5x rate), coins 1.5625x
+    const prestiged = calculateIncomePerSecond(balls, 1, 1.5625, 1, 2, 1)
+    expect(prestiged.div(base).toNumber()).toBeCloseTo(1.5 * 1.5625, 10)
   })
 
   it('should stop paying damage once a ball one-shots a brick', () => {
     const balls = [createBall('basic')]
     const tier20 = 20
-    const level19 = calculateIncomePerSecond(balls, 1, 1.75 ** 19, 1, 19, tier20)
-    const level20 = calculateIncomePerSecond(balls, 1, 1.75 ** 20, 1, 20, tier20)
-    expect(level20.div(level19).toNumber()).toBeCloseTo(1.75, 2)
+    const level19 = calculateIncomePerSecond(balls, 1, 1.25 ** 19, 1, 19, tier20)
+    const level20 = calculateIncomePerSecond(balls, 1, 1.25 ** 20, 1, 20, tier20)
+    expect(level20.div(level19).toNumber()).toBeCloseTo(1.25, 2)
+  })
+
+  it('handles Decimal multipliers beyond Number.MAX_VALUE at high tiers without NaN', () => {
+    const income = calculateIncomePerSecond(
+      [createBall('basic')],
+      1,
+      new Decimal('1e400'),
+      new Decimal('1e400'),
+      100,
+      5000,
+    )
+    expect(income.toString()).not.toBe('NaN')
+    expect(income.gt('1e400')).toBe(true)
   })
 
   it('should follow the value/health yield at higher tiers', () => {

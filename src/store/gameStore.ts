@@ -4,12 +4,13 @@ import Decimal from 'break_infinity.js';
 import {
   BALL_TYPES,
   UPGRADE_MULTIPLIER,
-  MAX_TIER,
   PRESTIGE_THRESHOLD,
+  calculateBlueprintsEarned,
+  calculateTierForBricks,
   getPrestigeMultiplier,
+  getUpgradeMultiplier,
   MAX_BALLS,
   MAX_SPEED_UPGRADE,
-  MAX_PRESTIGE_LEVEL,
   COST_MULTIPLIER,
   STARTING_COINS,
   UPGRADE_COST_MULTIPLIER,
@@ -61,6 +62,8 @@ interface GameStore {
   totalBricksBroken: Decimal;
   /** Current prestige level, granting global bonuses. */
   prestigeLevel: number;
+  /** Persistent prestige currency earned on prestige. */
+  blueprints: Decimal;
   /** Current levels of all purchased upgrades. */
   upgrades: Upgrades;
   /** Current cost to purchase the next ball of each type. */
@@ -262,15 +265,15 @@ interface GameStore {
 
   /**
    * Calculates the current global damage multiplier.
-   * @returns {number} The damage multiplier.
+   * @returns {Decimal} The damage multiplier.
    */
-  getDamageMult: () => number;
+  getDamageMult: () => Decimal;
 
   /**
    * Calculates the current global coin multiplier.
-   * @returns {number} The coin multiplier.
+   * @returns {Decimal} The coin multiplier.
    */
-  getCoinMult: () => number;
+  getCoinMult: () => Decimal;
 
   /**
    * Calculates the current global speed multiplier.
@@ -289,7 +292,7 @@ const ZERO_DECIMAL = new Decimal(0);
 const SAVE_STORAGE_KEY = 'idleBricksSave';
 
 /** Current persisted save schema. Version 0 means a pre-versioning legacy save. */
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 export interface BoardSnapshotPatch {
   balls: BallData[];
@@ -364,11 +367,14 @@ const parseDecimal = (value: unknown, fallback: Decimal = ZERO_DECIMAL): Decimal
 const parseInteger = (value: unknown, fallback = 0, max?: number): number => {
   const numericValue = Number(value);
 
-  if (!Number.isFinite(numericValue)) {
+  if (!Number.isFinite(numericValue) || numericValue < fallback) {
     return fallback;
   }
 
-  const normalizedValue = Math.max(fallback, Math.floor(numericValue));
+  const normalizedValue = Math.floor(numericValue);
+  if (!Number.isSafeInteger(normalizedValue)) {
+    return fallback;
+  }
 
   if (typeof max === 'number') {
     return Math.min(max, normalizedValue);
@@ -442,7 +448,10 @@ const parseSavedBrick = (
   if (typeof tier !== 'number' || !Number.isFinite(tier) || tier < 1) {
     return null;
   }
-  const normalizedTier = Math.min(MAX_TIER, Math.floor(tier));
+  const normalizedTier = Math.floor(tier);
+  if (!Number.isSafeInteger(normalizedTier)) {
+    return null;
+  }
 
   const health = parseStrictDecimal(raw.health);
   const maxHealth = parseStrictDecimal(raw.maxHealth);
@@ -518,6 +527,7 @@ interface SaveDataBuilderState {
   bricksBroken: Decimal;
   totalBricksBroken: Decimal;
   prestigeLevel: number;
+  blueprints: Decimal;
   upgrades: Upgrades;
   ballCosts: Record<BallType, Decimal>;
   upgradeCosts: Record<keyof Upgrades, Decimal>;
@@ -546,6 +556,7 @@ const buildSaveData = (state: SaveDataBuilderState): SaveData => ({
   bricksBroken: state.bricksBroken.toString(),
   totalBricksBroken: state.totalBricksBroken.toString(),
   prestigeLevel: state.prestigeLevel,
+  blueprints: state.blueprints.toString(),
   upgrades: state.upgrades,
   ballCosts: Object.fromEntries(
     Object.entries(state.ballCosts).map(([k, v]) => [k, v.toString()])
@@ -705,6 +716,8 @@ const getLocalStorage = (): StorageLike | undefined => {
  * - v0 (unversioned) -> v1: promotes schema version while keeping fields.
  * - v1 -> v2: adds optional versioned board snapshot (legacy saves omit board
  *   so BoardSimulation generates a fresh board on load).
+ * - v2 -> v3: adds Blueprints prestige currency (defaults to '0') and removes
+ *   legacy tier/prestige hard caps.
  */
 const migrateSaveData = (raw: Record<string, unknown>, fromVersion: number): SaveData => {
   let migrated: Record<string, unknown> = { ...raw };
@@ -712,7 +725,14 @@ const migrateSaveData = (raw: Record<string, unknown>, fromVersion: number): Sav
     migrated = { ...migrated, version: 1 };
   }
   if (fromVersion < 2) {
-    migrated = { ...migrated, version: SAVE_VERSION };
+    migrated = { ...migrated, version: 2 };
+  }
+  if (fromVersion < 3) {
+    migrated = {
+      ...migrated,
+      blueprints: migrated.blueprints !== undefined ? migrated.blueprints : '0',
+      version: SAVE_VERSION,
+    };
   }
   return { ...(migrated as SaveData), version: SAVE_VERSION };
 };
@@ -796,11 +816,12 @@ const parseSaveData = (saveData: SaveData, canvasWidth: number, canvasHeight: nu
     coins: parseDecimal(saveData.coins),
     bricksBroken: parseDecimal(saveData.bricksBroken),
     totalBricksBroken: parseDecimal(saveData.totalBricksBroken),
-    prestigeLevel: parseInteger(saveData.prestigeLevel, 0, MAX_PRESTIGE_LEVEL),
+    prestigeLevel: parseInteger(saveData.prestigeLevel, 0),
+    blueprints: parseDecimal(saveData.blueprints),
     upgrades,
     ballCosts,
     upgradeCosts,
-    currentTier: parseInteger(saveData.currentTier, 1, MAX_TIER),
+    currentTier: parseInteger(saveData.currentTier, 1),
     balls: balls.length > 0 ? balls : [createBall('basic', canvasWidth, canvasHeight, ballRandom)],
     bricks: parsedBoard.bricks,
     boardSeed: parsedBoard.boardSeed,
@@ -820,6 +841,7 @@ export const useGameStore = create<GameStore>()(
     bricksBroken: new Decimal(0),
     totalBricksBroken: new Decimal(0),
     prestigeLevel: 0,
+    blueprints: new Decimal(0),
     upgrades: { speed: 0, damage: 0, coinMult: 0 },
     ballCosts: getDefaultBallCosts(),
     upgradeCosts: getDefaultUpgradeCosts(),
@@ -891,7 +913,7 @@ export const useGameStore = create<GameStore>()(
       const nextTotalBricksBroken = state.totalBricksBroken.add(sim.bricksBroken);
       const nextTier = Math.max(
         state.currentTier,
-        Math.min(MAX_TIER, 1 + nextBricksBroken.div(100).floor().toNumber())
+        calculateTierForBricks(nextBricksBroken)
       );
 
       set({
@@ -909,13 +931,14 @@ export const useGameStore = create<GameStore>()(
 
     incrementBricksBroken: () => {
       const state = get();
+      const nextBricksBroken = state.bricksBroken.add(1);
       set({
-        bricksBroken: state.bricksBroken.add(1),
+        bricksBroken: nextBricksBroken,
         totalBricksBroken: state.totalBricksBroken.add(1),
       });
 
       // Check if we need to increase tier
-      const newTier = Math.min(MAX_TIER, 1 + state.bricksBroken.add(1).div(100).floor().toNumber());
+      const newTier = calculateTierForBricks(nextBricksBroken);
       if (newTier > state.currentTier) {
         set({ currentTier: newTier });
       }
@@ -950,7 +973,7 @@ export const useGameStore = create<GameStore>()(
       const nextTier = hasBroken
         ? Math.max(
             state.currentTier,
-            Math.min(MAX_TIER, 1 + nextBricksBroken.div(100).floor().toNumber())
+            calculateTierForBricks(nextBricksBroken)
           )
         : state.currentTier;
 
@@ -1093,13 +1116,17 @@ export const useGameStore = create<GameStore>()(
       flushActiveBoard();
       const state = get();
       if (!get().canPrestige()) return false;
-      if (state.prestigeLevel >= MAX_PRESTIGE_LEVEL) return false;
 
+      const earnedBlueprints = calculateBlueprintsEarned(
+        state.bricksBroken,
+        state.currentTier
+      );
       const { width, height } = state.canvasSize;
       discardActiveBoard();
 
       set({
         prestigeLevel: state.prestigeLevel + 1,
+        blueprints: state.blueprints.add(earnedBlueprints),
         // A fresh run starts empty; kept upgrades and the multiplier already
         // make income higher than a new game's 35 starting coins.
         coins: new Decimal(0),
@@ -1318,6 +1345,7 @@ export const useGameStore = create<GameStore>()(
         bricksBroken: new Decimal(0),
         totalBricksBroken: new Decimal(0),
         prestigeLevel: 0,
+        blueprints: new Decimal(0),
         currentTier: 1,
         upgrades: { speed: 0, damage: 0, coinMult: 0 },
         ballCosts: getDefaultBallCosts(),
@@ -1392,15 +1420,14 @@ export const useGameStore = create<GameStore>()(
       const state = get();
       // Prestige also strengthens balls, otherwise thresholds (bricks) would
       // outgrow the damage needed to break them.
-      return (
-        (1 + state.upgrades.damage * UPGRADE_MULTIPLIER) *
+      return getUpgradeMultiplier(state.upgrades.damage).mul(
         getPrestigeMultiplier(state.prestigeLevel)
       );
     },
 
     getCoinMult: () => {
       const state = get();
-      return 1 + state.upgrades.coinMult * UPGRADE_MULTIPLIER;
+      return getUpgradeMultiplier(state.upgrades.coinMult);
     },
 
     getSpeedMult: () => {

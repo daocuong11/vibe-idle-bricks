@@ -3,8 +3,6 @@ import Decimal from 'break_infinity.js';
 import { useGameStore, SAVE_VERSION } from '../../src/store/gameStore';
 import {
   BALL_TYPES,
-  MAX_PRESTIGE_LEVEL,
-  MAX_TIER,
   getPrestigeMultiplier,
 } from '../../src/types/game';
 
@@ -40,6 +38,7 @@ const resetStore = () => {
     bricksBroken: new Decimal(0),
     totalBricksBroken: new Decimal(0),
     prestigeLevel: 0,
+    blueprints: new Decimal(0),
     upgrades: { speed: 0, damage: 0, coinMult: 0 },
     ballCosts: {
       basic: new Decimal(BALL_TYPES.basic.baseCost),
@@ -119,22 +118,69 @@ describe('save validation and migration', () => {
     expect(cost.lt(new Decimal('1e100'))).toBe(true);
   });
 
-  it('clamps oversized prestige levels to a finite multiplier', () => {
+  it('preserves high prestige levels with finite Decimal multipliers and rejects unsafe integers', () => {
     expect(
-      importSave({ coins: '0', prestigeLevel: 1e9, balls: ['basic'] }),
+      importSave({ coins: '0', prestigeLevel: 1500, balls: ['basic'] }),
     ).toBe(true);
 
     const state = useGameStore.getState();
-    expect(state.prestigeLevel).toBe(MAX_PRESTIGE_LEVEL);
-    expect(Number.isFinite(getPrestigeMultiplier(state.prestigeLevel))).toBe(true);
+    expect(state.prestigeLevel).toBe(1500);
+    const mult = getPrestigeMultiplier(state.prestigeLevel);
+    expect(mult.gt('1e140')).toBe(true);
+    expect(mult.toString()).not.toBe('Infinity');
+
+    expect(
+      importSave({ coins: '0', prestigeLevel: 1e20, balls: ['basic'] }),
+    ).toBe(true);
+    expect(useGameStore.getState().prestigeLevel).toBe(0);
+
+    expect(
+      importSave({ coins: '0', prestigeLevel: -5, balls: ['basic'] }),
+    ).toBe(true);
+    expect(useGameStore.getState().prestigeLevel).toBe(0);
   });
 
-  it('clamps oversized tiers to MAX_TIER', () => {
+  it('preserves high tiers without cap and rejects unsafe or negative tiers', () => {
     expect(
-      importSave({ coins: '0', prestigeLevel: 0, currentTier: 1e9, balls: ['basic'] }),
+      importSave({ coins: '0', prestigeLevel: 0, currentTier: 250, balls: ['basic'] }),
     ).toBe(true);
+    expect(useGameStore.getState().currentTier).toBe(250);
 
-    expect(useGameStore.getState().currentTier).toBe(MAX_TIER);
+    expect(
+      importSave({ coins: '0', prestigeLevel: 0, currentTier: 1e20, balls: ['basic'] }),
+    ).toBe(true);
+    expect(useGameStore.getState().currentTier).toBe(1);
+
+    expect(
+      importSave({ coins: '0', prestigeLevel: 0, currentTier: -3, balls: ['basic'] }),
+    ).toBe(true);
+    expect(useGameStore.getState().currentTier).toBe(1);
+  });
+
+  it('validates blueprints as finite non-negative Decimal', () => {
+    expect(
+      importSave({
+        version: SAVE_VERSION,
+        coins: '0',
+        prestigeLevel: 1,
+        blueprints: '1.5e25',
+        balls: ['basic'],
+      }),
+    ).toBe(true);
+    expect(useGameStore.getState().blueprints.eq('1.5e25')).toBe(true);
+
+    for (const bad of ['NaN', 'Infinity', '-10', 'not-a-number']) {
+      expect(
+        importSave({
+          version: SAVE_VERSION,
+          coins: '0',
+          prestigeLevel: 1,
+          blueprints: bad,
+          balls: ['basic'],
+        }),
+      ).toBe(true);
+      expect(useGameStore.getState().blueprints.eq(0)).toBe(true);
+    }
   });
 
   it('rejects a future save version without mutating state', () => {

@@ -35,8 +35,8 @@ export interface BoardWorld {
   bricks: BrickData[];
   explosions: Explosion[];
   speedMultiplier: number;
-  damageMultiplier: number;
-  coinMultiplier: number;
+  damageMultiplier: Decimal;
+  coinMultiplier: Decimal;
   accumulator: number;
   time: number;
   spatialGrid: SpatialGrid;

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import Decimal from 'break_infinity.js';
 import { BrickManager } from '../src/game/BrickManager';
 import { MIN_BRICKS_ON_SCREEN } from '../src/game/constants';
 import {
@@ -172,5 +173,22 @@ describe('simulateOfflineBoard', () => {
     expect(result.simulatedSeconds).toBe(0);
     expect(result.bricksBroken).toBe(0);
     expect(result.coinsEarned.gt(0)).toBe(true);
+  });
+
+  it('supports tiers above 20 and Decimal multipliers beyond Number.MAX_VALUE', () => {
+    const result = simulateOfflineBoard(
+      makeInput({
+        currentTier: 35,
+        prestigeLevel: 200,
+        damageMultiplier: new Decimal('1e400'),
+        coinMultiplier: new Decimal('1e400'),
+        bricks: makeSeededBricks(7, 10, 35),
+        elapsedSeconds: 30,
+      })
+    );
+
+    expect(result.coinsEarned.toString()).not.toBe('NaN');
+    expect(result.coinsEarned.gt('1e400')).toBe(true);
+    expect(result.bricksBroken).toBeGreaterThan(0);
   });
 });

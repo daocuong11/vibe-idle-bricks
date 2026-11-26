@@ -5,7 +5,7 @@ import Decimal from 'break_infinity.js'
 import { Shop } from '../../src/components/Shop'
 import { ToastProvider } from '../../src/components/Toast'
 import { useGameStore } from '../../src/store/gameStore'
-import { BALL_TYPES, MAX_PRESTIGE_LEVEL, PRESTIGE_THRESHOLD } from '../../src/types/game'
+import { BALL_TYPES, PRESTIGE_THRESHOLD } from '../../src/types/game'
 import { recordIncome, resetIncomeTracking } from '../../src/store/earnings'
 
 /** Renders Shop inside the required ToastProvider. */
@@ -24,6 +24,7 @@ const resetStore = () => {
     bricksBroken: new Decimal(0),
     totalBricksBroken: new Decimal(0),
     prestigeLevel: 0,
+    blueprints: new Decimal(0),
     upgrades: { speed: 0, damage: 0, coinMult: 0 },
     ballCosts: {
       basic: new Decimal(BALL_TYPES.basic.baseCost),
@@ -86,8 +87,8 @@ describe('Shop', () => {
       await user.click(screen.getByRole('tab', { name: /upgrades/i }))
 
       expect(screen.getByText(/speed ×1 → ×1\.1/i)).toBeInTheDocument()
-      expect(screen.getByText(/damage ×1 → ×1\.1/i)).toBeInTheDocument()
-      expect(screen.getByText(/coins ×1 → ×1\.1/i)).toBeInTheDocument()
+      expect(screen.getByText(/damage ×1 → ×1\.08/i)).toBeInTheDocument()
+      expect(screen.getByText(/coins ×1 → ×1\.08/i)).toBeInTheDocument()
     })
 
     it('should preview the Max purchase and the shortfall', async () => {
@@ -295,18 +296,17 @@ describe('Shop', () => {
       expect(screen.getByText(/break 1.00K more bricks/i)).toBeInTheDocument()
     })
 
-    it('should disable prestige at max level even with enough bricks', async () => {
+    it('should allow prestige at high levels without a hard cap', async () => {
       useGameStore.setState({
         bricksBroken: new Decimal(PRESTIGE_THRESHOLD),
-        prestigeLevel: MAX_PRESTIGE_LEVEL,
+        prestigeLevel: 150,
       })
       renderShop()
       const user = userEvent.setup()
       await user.click(screen.getByRole('tab', { name: /prestige/i }))
 
       const prestigeButton = within(screen.getByRole('heading', { name: /prestige/i }).parentElement!).getByRole('button', { name: /prestige/i })
-      expect(prestigeButton).toBeDisabled()
-      expect(screen.getByText(/max level/i)).toBeInTheDocument()
+      expect(prestigeButton).not.toBeDisabled()
     })
 
     it('should enable prestige when threshold met', async () => {
@@ -323,18 +323,21 @@ describe('Shop', () => {
       expect(prestigeButton).not.toBeDisabled()
     })
 
-    it('should show bonus info when can prestige', async () => {
+    it('should show bonus info and blueprints preview when can prestige', async () => {
       useGameStore.setState({
-        bricksBroken: new Decimal(PRESTIGE_THRESHOLD),
+        bricksBroken: new Decimal(PRESTIGE_THRESHOLD * 4),
+        currentTier: 20,
         prestigeLevel: 2,
+        blueprints: new Decimal(10),
       })
       renderShop()
       const user = userEvent.setup()
       const prestigeTab = screen.getByRole('tab', { name: /prestige/i })
       await user.click(prestigeTab)
 
-      expect(screen.getByText(/next: ×5\.36 damage & coins/i)).toBeInTheDocument()
-      expect(screen.getByText(/current: ×3\.06/i)).toBeInTheDocument()
+      expect(screen.getByText(/blueprints: 10 · \+4 blueprints/i)).toBeInTheDocument()
+      expect(screen.getByText(/next: ×1\.95 damage & coins/i)).toBeInTheDocument()
+      expect(screen.getByText(/current: ×1\.56/i)).toBeInTheDocument()
     })
 
     it('should show confirm dialog when prestige clicked', async () => {
@@ -374,6 +377,7 @@ describe('Shop', () => {
       await user.click(within(dialog).getByRole('button', { name: /^prestige$/i }))
 
       expect(useGameStore.getState().prestigeLevel).toBe(1)
+      expect(useGameStore.getState().blueprints.eq(1)).toBe(true)
       expect(useGameStore.getState().coins.eq(0)).toBe(true)
     })
 

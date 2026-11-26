@@ -155,7 +155,7 @@ export const ACHIEVEMENTS: ReadonlyArray<AchievementDef> = [
   {
     id: 'tier_20',
     name: 'Tier XX',
-    description: 'Reach the maximum tier 20.',
+    description: 'Reach tier 20.',
     icon: '🥇',
     condition: (s) => s.currentTier >= 20,
   },

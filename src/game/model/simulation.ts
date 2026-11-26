@@ -36,10 +36,15 @@ interface BoardWorldInput {
   bricks: BrickData[];
   explosions?: Explosion[];
   speedMultiplier?: number;
-  damageMultiplier?: number;
-  coinMultiplier?: number;
+  damageMultiplier?: Decimal | number;
+  coinMultiplier?: Decimal | number;
   time?: number;
 }
+
+const toMultiplierDecimal = (value: Decimal | number | undefined): Decimal => {
+  if (value === undefined) return new Decimal(1);
+  return value instanceof Decimal ? value : new Decimal(value);
+};
 
 export const createBoardWorld = (input: BoardWorldInput): BoardWorld => {
   const world: BoardWorld = {
@@ -49,8 +54,8 @@ export const createBoardWorld = (input: BoardWorldInput): BoardWorld => {
     bricks: [...input.bricks],
     explosions: [...(input.explosions ?? [])],
     speedMultiplier: input.speedMultiplier ?? 1,
-    damageMultiplier: input.damageMultiplier ?? 1,
-    coinMultiplier: input.coinMultiplier ?? 1,
+    damageMultiplier: toMultiplierDecimal(input.damageMultiplier),
+    coinMultiplier: toMultiplierDecimal(input.coinMultiplier),
     accumulator: 0,
     time: input.time ?? 0,
     spatialGrid: new SpatialGrid(100),
@@ -69,7 +74,7 @@ export const refreshBoardWorld = (world: BoardWorld): void => {
 
 interface BoardDamageOptions {
   source: DamageSource;
-  coinMultiplier: number;
+  coinMultiplier: Decimal | number;
   particleCount: number;
   showCoinText: boolean;
   showDamageText?: (result: BrickDamageResult) => boolean;
@@ -226,7 +231,7 @@ export const applyBoardClickDamage = (world: BoardWorld, x: number, y: number): 
   const brick = findBrickAt(world, x, y);
   if (!brick) return undefined;
 
-  const damage = new Decimal(world.damageMultiplier).mul(CLICK_DAMAGE_BASE);
+  const damage = world.damageMultiplier.mul(CLICK_DAMAGE_BASE);
   damageBoardBricks(world, [{ id: brick.id, damage }], {
     source: 'click',
     coinMultiplier: world.coinMultiplier,

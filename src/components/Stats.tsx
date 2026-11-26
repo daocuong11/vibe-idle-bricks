@@ -1,7 +1,7 @@
 import { useGameStore } from '../store';
 import { formatMultiplier, formatNumber } from '../utils';
 import { MAX_BALLS, PRESTIGE_THRESHOLD, getPrestigeMultiplier } from '../types';
-import { Coins, BrickWall, Layers, Circle, TrendingUp } from 'lucide-react';
+import { Coins, BrickWall, Layers, Circle, TrendingUp, Compass } from 'lucide-react';
 
 /**
  * Stats component displaying current game metrics.
@@ -16,6 +16,7 @@ export function Stats() {
   // Selector selects just the length to avoid re-rendering on every frame when ball positions update
   const ballCount = useGameStore((state) => state.balls.length);
   const prestigeLevel = useGameStore((state) => state.prestigeLevel);
+  const blueprints = useGameStore((state) => state.blueprints);
   const prestigeMult = getPrestigeMultiplier(prestigeLevel);
   const incomePerSecond = useGameStore.getState().getIncomePerSecond();
 
@@ -53,6 +54,11 @@ export function Stats() {
         <TrendingUp className="stat-icon text-purple-400" size={24} />
         <span className="stat-value">{formatMultiplier(prestigeMult)}×</span>
         <label>Prestige Bonus</label>
+      </div>
+      <div className="stat stat-blueprints">
+        <Compass className="stat-icon text-blue-400" size={24} />
+        <span className="stat-value">{formatNumber(blueprints)}</span>
+        <label>Blueprints</label>
       </div>
     </div>
   );

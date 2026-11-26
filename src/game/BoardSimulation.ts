@@ -1,6 +1,6 @@
 import Decimal from 'break_infinity.js';
 import { registerBoardSyncHandlers, useGameStore } from '../store';
-import { MAX_TIER, type BrickData } from '../types';
+import { calculateTierForBricks, type BrickData } from '../types';
 import { formatNumber } from '../utils';
 import { playSound } from '../utils/audio';
 import { BrickManager } from './BrickManager';
@@ -222,7 +222,7 @@ export class BoardSimulation {
     const store = useGameStore.getState();
     const effectiveTier = Math.max(
       store.currentTier,
-      Math.min(MAX_TIER, 1 + store.bricksBroken.add(this.pendingBricksBroken).div(100).floor().toNumber())
+      calculateTierForBricks(store.bricksBroken.add(this.pendingBricksBroken))
     );
     const refillTarget = Math.min(MIN_BRICKS_ON_SCREEN, this.brickManager.getCapacity());
     if (this.world.bricks.length < refillTarget) {

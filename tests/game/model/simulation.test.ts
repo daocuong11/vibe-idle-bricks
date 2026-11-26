@@ -47,7 +47,12 @@ const makeBall = (overrides: Partial<BallData> = {}): BallData => ({
 const makeWorld = (
   balls: BallData[] = [],
   bricks: BrickData[] = [],
-  overrides: Partial<{ speedMultiplier: number; damageMultiplier: number; coinMultiplier: number; time: number }> = {}
+  overrides: Partial<{
+    speedMultiplier: number;
+    damageMultiplier: Decimal | number;
+    coinMultiplier: Decimal | number;
+    time: number;
+  }> = {}
 ): BoardWorld => createBoardWorld({
   width: 800,
   height: 500,
@@ -245,5 +250,27 @@ describe('pure board model', () => {
     expect(explosions[0].life).toBe(12);
     updateBoardExplosions(world, 8);
     expect(world.explosions).toEqual([]);
+  });
+
+  it('supports Decimal multipliers beyond Number.MAX_VALUE without overflow', () => {
+    const hugeDamage = new Decimal('1e400');
+    const hugeCoins = new Decimal('1e400');
+    const brick = makeBrick({
+      health: new Decimal('1e400'),
+      maxHealth: new Decimal('1e400'),
+      value: new Decimal('1e50'),
+    });
+    const world = makeWorld([makeBall()], [brick], {
+      damageMultiplier: hugeDamage,
+      coinMultiplier: hugeCoins,
+    });
+
+    stepBoardWorld(world);
+    const events = takeBoardEvents(world);
+    const destroyed = events.find((event) => event.type === 'brickDestroyed');
+    expect(destroyed?.type).toBe('brickDestroyed');
+    if (destroyed?.type === 'brickDestroyed') {
+      expect(destroyed.coins.eq('1e450')).toBe(true);
+    }
   });
 });
