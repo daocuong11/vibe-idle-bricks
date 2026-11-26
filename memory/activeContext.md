@@ -2,6 +2,12 @@
 
 ## Current Work Focus
 
+Batch 7e (**Per-ball progression**) is implemented on
+`feat/per-ball-progression` (2026-11-27): permanent per-type levels bought with
+coins, per-type damage and Fast speed multipliers in the board/offline core,
+Shop level/effect/upgrade UI, and save v6. 532 tests across 46 files; #83 closes
+on merge.
+
 Batch 7d (**Run goals**) is **complete** (2026-11-27, PR #123):
 100/500/1,000-brick goals award 1/2/3 Blueprints once per run, show progress in
 Stats and a toast, reset on prestige, and persist in save v5. The offline
@@ -80,6 +86,10 @@ TypeScript 6.0.3. The entries below are historical context from the November
 playtest and earlier batches.
 
 ## Recent Changes
+
+- Batch 7e: per-ball-type levels (Basic/Heavy damage, Fast damage+speed, Plasma/
+  Explosive/Sniper damage), Shop upgrade row, save v6, prestige persistence and
+  full-reset clearing. Per-type speed is capped at 3×.
 
 - Batch 7d (PR #123): run goals (100/500/1,000 bricks → 1/2/3 Blueprints), Stats progress,
   toast queue, save v5 migration, prestige/reset behavior. Offline multiplier is

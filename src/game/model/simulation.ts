@@ -40,6 +40,8 @@ interface BoardWorldInput {
   damageMultiplier?: Decimal | number;
   coinMultiplier?: Decimal | number;
   priorityBrickId?: string | null;
+  ballDamageMultipliers?: Partial<Record<BallType, Decimal>>;
+  ballSpeedMultipliers?: Partial<Record<BallType, Decimal>>;
   time?: number;
 }
 
@@ -63,6 +65,8 @@ export const createBoardWorld = (input: BoardWorldInput): BoardWorld => {
     spatialGrid: new SpatialGrid(100),
     target: null,
     priorityBrickId: input.priorityBrickId ?? null,
+    ballDamageMultipliers: input.ballDamageMultipliers,
+    ballSpeedMultipliers: input.ballSpeedMultipliers,
     events: [],
   };
   refreshBoardWorld(world);
@@ -175,7 +179,9 @@ export const checkBrickCollisions = (
   ball: BallData
 ): { dx: number; dy: number } | null => {
   const config = BALL_TYPES[ball.type];
-  const damage = new Decimal(config.damage).mul(world.damageMultiplier);
+  const damage = new Decimal(config.damage)
+    .mul(world.damageMultiplier)
+    .mul(world.ballDamageMultipliers?.[ball.type] ?? 1);
   for (const brick of world.spatialGrid.query(ball, BALL_RADIUS)) {
     if (!ballCollidesWithBrick(ball, brick)) continue;
 
@@ -201,7 +207,10 @@ export const checkBrickCollisions = (
 
 export const simulateBall = (world: BoardWorld, ball: BallData, step: number): void => {
   const config = BALL_TYPES[ball.type];
-  const speed = config.speed * world.speedMultiplier;
+  const speed =
+    config.speed *
+    world.speedMultiplier *
+    (world.ballSpeedMultipliers?.[ball.type]?.toNumber() ?? 1);
   const initialVelocity = normalizeVelocity(ball.dx, ball.dy, speed);
   let dx = initialVelocity.dx;
   let dy = initialVelocity.dy;

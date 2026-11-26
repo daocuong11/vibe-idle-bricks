@@ -31,6 +31,80 @@ export interface BallTypeConfig {
   description: string;
 }
 
+/** Permanent per-ball-type upgrade levels; cleared only on full reset. */
+export interface BallLevels {
+  basic: number;
+  fast: number;
+  heavy: number;
+  plasma: number;
+  explosive: number;
+  sniper: number;
+}
+
+/** Base coin cost of the first per-type upgrade. */
+export const BALL_UPGRADE_BASE_COSTS: Record<BallType, number> = {
+  basic: 150,
+  fast: 250,
+  heavy: 500,
+  plasma: 1000,
+  explosive: 1500,
+  sniper: 3000,
+};
+
+export const BALL_UPGRADE_COST_MULTIPLIER = 1.4;
+export const MAX_BALL_LEVEL = 1000;
+/** Per-type speed is capped independently of the global speed cap. */
+export const MAX_BALL_SPEED_MULTIPLIER = 3;
+
+/** Fractional damage gain per level, by ball type. */
+export const BALL_DAMAGE_PER_LEVEL: Record<BallType, number> = {
+  basic: 0.25,
+  fast: 0.12,
+  heavy: 0.2,
+  plasma: 0.15,
+  explosive: 0.15,
+  sniper: 0.18,
+};
+
+/** Fractional speed gain per level (currently only Fast specializes in speed). */
+export const BALL_SPEED_PER_LEVEL: Record<BallType, number> = {
+  basic: 0,
+  fast: 0.04,
+  heavy: 0,
+  plasma: 0,
+  explosive: 0,
+  sniper: 0,
+};
+
+export const getDefaultBallLevels = (): BallLevels => ({
+  basic: 0,
+  fast: 0,
+  heavy: 0,
+  plasma: 0,
+  explosive: 0,
+  sniper: 0,
+});
+
+const clampLevel = (level: number): number =>
+  Number.isFinite(level)
+    ? Math.min(MAX_BALL_LEVEL, Math.max(0, Math.floor(level)))
+    : 0;
+
+/** Cost of the next level: ceil(base × 1.4^level). */
+export const getBallUpgradeCost = (type: BallType, level: number): Decimal =>
+  new Decimal(BALL_UPGRADE_BASE_COSTS[type])
+    .mul(new Decimal(BALL_UPGRADE_COST_MULTIPLIER).pow(clampLevel(level)))
+    .ceil();
+
+export const getBallDamageMultiplier = (type: BallType, level: number): Decimal =>
+  new Decimal(1).add(BALL_DAMAGE_PER_LEVEL[type] * clampLevel(level));
+
+export const getBallSpeedMultiplier = (type: BallType, level: number): Decimal =>
+  Decimal.min(
+    MAX_BALL_SPEED_MULTIPLIER,
+    new Decimal(1).add(BALL_SPEED_PER_LEVEL[type] * clampLevel(level))
+  );
+
 /**
  * Represents an instance of a ball in the game world.
  */
@@ -273,6 +347,7 @@ export interface SaveData {
   bestTier?: number;
   playTimeMs?: number;
   upgrades?: Upgrades;
+  ballLevels?: Partial<BallLevels>;
   ballCosts?: Record<string, string>;
   upgradeCosts?: Record<string, string>;
   currentTier?: number;

@@ -9,6 +9,7 @@ import {
   calculateTierForBricks,
   getPrestigeMultiplier,
   type BallData,
+  type BallType,
   type BrickData,
 } from '../../types';
 import { BrickManager } from '../BrickManager';
@@ -35,6 +36,8 @@ export interface OfflineSimulationInput {
   speedMultiplier: number;
   damageMultiplier: Decimal | number;
   coinMultiplier: Decimal | number;
+  ballDamageMultipliers?: Partial<Record<BallType, Decimal>>;
+  ballSpeedMultipliers?: Partial<Record<BallType, Decimal>>;
   prestigeLevel: number;
   currentTier: number;
   initialBricksBroken?: Decimal;
@@ -124,6 +127,8 @@ export const simulateOfflineBoard = (
     speedMultiplier: input.speedMultiplier,
     damageMultiplier: input.damageMultiplier,
     coinMultiplier: input.coinMultiplier,
+    ballDamageMultipliers: input.ballDamageMultipliers,
+    ballSpeedMultipliers: input.ballSpeedMultipliers,
     time: 0,
   });
 

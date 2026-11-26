@@ -5,7 +5,7 @@ import Decimal from 'break_infinity.js'
 import { Shop } from '../../src/components/Shop'
 import { ToastProvider } from '../../src/components/Toast'
 import { useGameStore } from '../../src/store/gameStore'
-import { BALL_TYPES, PRESTIGE_THRESHOLD } from '../../src/types/game'
+import { BALL_TYPES, PRESTIGE_THRESHOLD, getDefaultBallLevels } from '../../src/types/game'
 import { recordIncome, resetIncomeTracking } from '../../src/store/earnings'
 
 /** Renders Shop inside the required ToastProvider. */
@@ -29,6 +29,7 @@ const resetStore = () => {
     lifetimeCoins: new Decimal(0),
     bestTier: 1,
     playTimeMs: 0,
+    ballLevels: getDefaultBallLevels(),
     upgrades: { speed: 0, damage: 0, coinMult: 0 },
     ballCosts: {
       basic: new Decimal(BALL_TYPES.basic.baseCost),
@@ -187,6 +188,19 @@ describe('Shop', () => {
 
       expect(useGameStore.getState().balls.length).toBe(1)
       expect(useGameStore.getState().coins.lt(100)).toBe(true)
+    })
+
+    it('should upgrade a ball type and show the new level/effect', async () => {
+      const user = userEvent.setup()
+      useGameStore.setState({ coins: new Decimal(1000) })
+      renderShop()
+
+      const item = screen.getByTestId('ball-item-basic')
+      await user.click(within(item).getByRole('button', { name: /level up basic/i }))
+
+      expect(useGameStore.getState().ballLevels.basic).toBe(1)
+      expect(within(item).getByText(/Lv 1/)).toBeInTheDocument()
+      expect(within(item).getByText(/DMG ×1.25/)).toBeInTheDocument()
     })
 
     it('should buy multiple balls with the Max button', async () => {

@@ -1,5 +1,6 @@
 import Decimal from 'break_infinity.js';
 import { describe, expect, it } from 'vitest';
+import { BALL_TYPES } from '../../../src/types';
 import type { BallData, BrickData, Explosion } from '../../../src/types';
 import { FIXED_STEP } from '../../../src/game/constants';
 import { BrickManager } from '../../../src/game/BrickManager';
@@ -7,6 +8,7 @@ import { createSeededRandom } from '../../../src/game/model/rng';
 import {
   advanceBoardWorld,
   applyBoardClickDamage,
+  checkBrickCollisions,
   createBoardWorld,
   damageBoardBricks,
   explodeBoard,
@@ -156,6 +158,30 @@ describe('pure board model', () => {
     expect(resolution.bricks[0].health.eq(5)).toBe(true);
     expect(resolution.bricks[0].lastHitTime).toBe(1234);
     expect(resolveBrickDamageBatch(bricks, [], 0).bricks).toBe(bricks);
+  });
+
+  it('scales damage and speed by per-ball-type levels', () => {
+    const damageWorld = createBoardWorld({
+      width: 800,
+      height: 500,
+      balls: [],
+      bricks: [makeBrick({ id: 'typed', health: new Decimal(10), maxHealth: new Decimal(10) })],
+      ballDamageMultipliers: { basic: new Decimal(2) },
+    });
+    const hitter = makeBall({ x: 100, y: 112, dx: 0, dy: 0 });
+    checkBrickCollisions(damageWorld, hitter);
+    expect(damageWorld.bricks[0].health.eq(8)).toBe(true);
+
+    const speedWorld = createBoardWorld({
+      width: 800,
+      height: 500,
+      balls: [],
+      bricks: [],
+      ballSpeedMultipliers: { fast: new Decimal(2) },
+    });
+    const speeder = makeBall({ type: 'fast', x: 100, y: 300, dx: 3, dy: 4 });
+    simulateBall(speedWorld, speeder, FIXED_STEP);
+    expect(Math.hypot(speeder.dx, speeder.dy)).toBeCloseTo(BALL_TYPES.fast.speed * 2);
   });
 
   it('reduces basic hits on armored bricks but lets heavy balls pierce', () => {

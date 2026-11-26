@@ -1,5 +1,5 @@
 import type Decimal from 'break_infinity.js';
-import type { BallData, BrickData, Explosion } from '../../types';
+import type { BallData, BallType, BrickData, Explosion } from '../../types';
 import type { SpatialGrid } from '../SpatialGrid';
 
 export type DamageSource = 'ball' | 'explosion' | 'click';
@@ -43,5 +43,8 @@ export interface BoardWorld {
   target: BrickData | null;
   /** Player-marked priority target; cleared when it is destroyed or missing. */
   priorityBrickId?: string | null;
+  /** Permanent per-type damage/speed multipliers. */
+  ballDamageMultipliers?: Partial<Record<BallType, Decimal>>;
+  ballSpeedMultipliers?: Partial<Record<BallType, Decimal>>;
   events: BoardEvent[];
 }

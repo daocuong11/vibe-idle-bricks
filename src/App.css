@@ -1917,3 +1917,46 @@ main {
 .run-goal.is-claimed .run-goal-bar span {
   background: #4ade80;
 }
+
+/* Per-ball progression */
+.ball-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ball-upgrade-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 3px;
+}
+
+.ball-level {
+  color: #94a3b8;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.ball-upgrade-btn {
+  border: 1px solid #4a5568;
+  border-radius: 7px;
+  background: rgba(15, 23, 42, 0.8);
+  color: #c4b5fd;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 4px 8px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.ball-upgrade-btn:hover:not(:disabled) {
+  border-color: #a78bfa;
+  color: #ede9fe;
+}
+
+.ball-upgrade-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}

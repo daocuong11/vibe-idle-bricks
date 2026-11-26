@@ -11,8 +11,12 @@ import {
   getPrestigeMultiplier,
   getPrestigeUpgradeCost,
   getPrestigeUpgradeMultiplier,
+  getBallDamageMultiplier,
+  getBallSpeedMultiplier,
+  getBallUpgradeCost,
   getUpgradeMultiplier,
   MAX_BALLS,
+  MAX_BALL_LEVEL,
   MAX_SPEED_UPGRADE,
   UPGRADE_MULTIPLIER,
 } from '../types';
@@ -90,6 +94,8 @@ export function Shop() {
   const blueprints = useGameStore((state) => state.blueprints);
   const prestigeUpgrades = useGameStore((state) => state.prestigeUpgrades);
   const buyPrestigeUpgrade = useGameStore((state) => state.buyPrestigeUpgrade);
+  const ballLevels = useGameStore((state) => state.ballLevels);
+  const upgradeBall = useGameStore((state) => state.upgradeBall);
   const canPrestige = useGameStore((state) => state.canPrestige);
   const buyBall = useGameStore((state) => state.buyBall);
   const buyMaxBalls = useGameStore((state) => state.buyMaxBalls);
@@ -163,29 +169,49 @@ export function Shop() {
               const cost = ballCosts[type];
               const canAfford = coins.gte(cost) && !isMaxed;
               const Icon = BallIcons[type];
+              const level = ballLevels[type];
+              const upgradeCost = getBallUpgradeCost(type, level);
+              const canUpgrade = coins.gte(upgradeCost) && level < MAX_BALL_LEVEL;
+              const damageMult = getBallDamageMultiplier(type, level);
+              const speedMult = getBallSpeedMultiplier(type, level);
 
               return (
-                <div key={type} className="ball-row">
-                  <button
-                    className={`shop-item ball-${type} ${canAfford ? 'affordable' : ''}`}
-                    disabled={!canAfford}
-                    onClick={() => buyBall(type)}
-                  >
-                    <span className="item-name">
-                      <Icon size={16} className="inline-block mr-2" style={{ verticalAlign: 'text-bottom' }} aria-hidden="true" />
-                      {type.charAt(0).toUpperCase() + type.slice(1)} Ball
+                <div key={type} className="ball-item" data-testid={`ball-item-${type}`}>
+                  <div className="ball-row">
+                    <button
+                      className={`shop-item ball-${type} ${canAfford ? 'affordable' : ''}`}
+                      disabled={!canAfford}
+                      onClick={() => buyBall(type)}
+                    >
+                      <span className="item-name">
+                        <Icon size={16} className="inline-block mr-2" style={{ verticalAlign: 'text-bottom' }} aria-hidden="true" />
+                        {type.charAt(0).toUpperCase() + type.slice(1)} Ball
+                      </span>
+                      <span className="item-cost">{isMaxed ? 'MAX' : formatNumber(cost)}</span> {isMaxed ? '' : 'coins'}
+                      <div className="item-desc">{config.description}</div>
+                    </button>
+                    <button
+                      className="ball-max-btn"
+                      disabled={!canAfford || isMaxed}
+                      onClick={() => buyMaxBalls(type)}
+                      aria-label={`Buy max ${type}`}
+                    >
+                      Max
+                    </button>
+                  </div>
+                  <div className="ball-upgrade-row">
+                    <span className="ball-level">
+                      Lv {level} · DMG ×{formatMultiplier(damageMult)} · SPD ×{formatMultiplier(speedMult)}
                     </span>
-                    <span className="item-cost">{isMaxed ? 'MAX' : formatNumber(cost)}</span> {isMaxed ? '' : 'coins'}
-                    <div className="item-desc">{config.description}</div>
-                  </button>
-                  <button
-                    className="ball-max-btn"
-                    disabled={!canAfford || isMaxed}
-                    onClick={() => buyMaxBalls(type)}
-                    aria-label={`Buy max ${type}`}
-                  >
-                    Max
-                  </button>
+                    <button
+                      className="ball-upgrade-btn"
+                      disabled={!canUpgrade}
+                      onClick={() => upgradeBall(type)}
+                      aria-label={`Level up ${type}`}
+                    >
+                      {level >= MAX_BALL_LEVEL ? 'MAX' : `Upgrade ${formatNumber(upgradeCost)}`}
+                    </button>
+                  </div>
                 </div>
               );
             })}

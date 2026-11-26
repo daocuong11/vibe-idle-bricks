@@ -19,12 +19,18 @@ import {
   UPGRADE_COST_MULTIPLIER,
   RUN_GOALS,
   isRunGoalId,
+  getBallDamageMultiplier,
+  getBallSpeedMultiplier,
+  getBallUpgradeCost,
+  getDefaultBallLevels,
+  MAX_BALL_LEVEL,
 } from '../types';
 import type {
   BallType,
   BallData,
   BrickData,
   Upgrades,
+  BallLevels,
   PrestigeUpgrades,
   PrestigeUpgradeType,
   RunGoalId,
@@ -81,6 +87,8 @@ interface GameStore {
   bestTier: number;
   /** Active play time in milliseconds, persisted on save. */
   playTimeMs: number;
+  /** Permanent per-ball-type levels. */
+  ballLevels: BallLevels;
   /** Current levels of all purchased upgrades. */
   upgrades: Upgrades;
   /** Current cost to purchase the next ball of each type. */
@@ -185,6 +193,15 @@ interface GameStore {
 
   /** Purchases one permanent prestige-tree level with Blueprints. */
   buyPrestigeUpgrade: (type: PrestigeUpgradeType) => boolean;
+
+  /** Purchases one permanent level for a ball type. */
+  upgradeBall: (type: BallType) => boolean;
+
+  /** Per-type damage multiplier from permanent levels. */
+  getBallDamageMult: (type: BallType) => Decimal;
+
+  /** Per-type speed multiplier from permanent levels. */
+  getBallSpeedMult: (type: BallType) => Decimal;
 
   /** Buys one affordable upgrade or ball while preserving a 50% coin reserve. */
   autoBuyTick: () => boolean;
@@ -376,7 +393,7 @@ const accruePlayTime = (playTimeMs: number): number => {
 };
 
 /** Current persisted save schema. Version 0 means a pre-versioning legacy save. */
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 
 export interface BoardSnapshotPatch {
   balls: BallData[];
@@ -630,6 +647,7 @@ interface SaveDataBuilderState {
   boardSeed: number;
   unlockedAchievements: UnlockedAchievements;
   claimedRunGoals: RunGoalId[];
+  ballLevels: BallLevels;
 }
 
 const serializeBrick = (brick: BrickData): SavedBrickData => ({
@@ -672,6 +690,7 @@ const buildSaveData = (state: SaveDataBuilderState): SaveData => ({
   },
   unlockedAchievements: state.unlockedAchievements,
   claimedRunGoals: state.claimedRunGoals,
+  ballLevels: state.ballLevels,
   timestamp: Date.now(),
   version: SAVE_VERSION,
 });
@@ -819,6 +838,7 @@ const getLocalStorage = (): StorageLike | undefined => {
  *   legacy tier/prestige hard caps.
  * - v3 -> v4: adds the prestige tree, lifetime records, best tier, and play time.
  * - v4 -> v5: adds run-goal claims (defaults to none).
+ * - v5 -> v6: adds permanent per-ball levels (defaults to zero).
  */
 const migrateSaveData = (raw: Record<string, unknown>, fromVersion: number): SaveData => {
   let migrated: Record<string, unknown> = { ...raw };
@@ -849,6 +869,13 @@ const migrateSaveData = (raw: Record<string, unknown>, fromVersion: number): Sav
     migrated = {
       ...migrated,
       claimedRunGoals: migrated.claimedRunGoals ?? [],
+      version: SAVE_VERSION,
+    };
+  }
+  if (fromVersion < 6) {
+    migrated = {
+      ...migrated,
+      ballLevels: migrated.ballLevels ?? getDefaultBallLevels(),
       version: SAVE_VERSION,
     };
   }
@@ -938,6 +965,17 @@ const parseSaveData = (saveData: SaveData, canvasWidth: number, canvasHeight: nu
     fortune: parseInteger(savedPrestigeUpgrades.fortune, 0, MAX_PRESTIGE_UPGRADE_LEVEL),
     insight: parseInteger(savedPrestigeUpgrades.insight, 0, MAX_PRESTIGE_UPGRADE_LEVEL),
   };
+  const savedBallLevels: Record<string, unknown> = isRecord(saveData.ballLevels)
+    ? saveData.ballLevels
+    : {};
+  const ballLevels: BallLevels = {
+    basic: parseInteger(savedBallLevels.basic, 0, MAX_BALL_LEVEL),
+    fast: parseInteger(savedBallLevels.fast, 0, MAX_BALL_LEVEL),
+    heavy: parseInteger(savedBallLevels.heavy, 0, MAX_BALL_LEVEL),
+    plasma: parseInteger(savedBallLevels.plasma, 0, MAX_BALL_LEVEL),
+    explosive: parseInteger(savedBallLevels.explosive, 0, MAX_BALL_LEVEL),
+    sniper: parseInteger(savedBallLevels.sniper, 0, MAX_BALL_LEVEL),
+  };
   const currentTier = parseInteger(saveData.currentTier, 1);
   const bestTier = Math.max(currentTier, parseInteger(saveData.bestTier, 1));
 
@@ -961,6 +999,7 @@ const parseSaveData = (saveData: SaveData, canvasWidth: number, canvasHeight: nu
     bestTier,
     playTimeMs: parseInteger(saveData.playTimeMs, 0),
     claimedRunGoals,
+    ballLevels,
     upgrades,
     ballCosts,
     upgradeCosts,
@@ -989,6 +1028,7 @@ export const useGameStore = create<GameStore>()(
     lifetimeCoins: new Decimal(0),
     bestTier: 1,
     playTimeMs: 0,
+    ballLevels: getDefaultBallLevels(),
     upgrades: { speed: 0, damage: 0, coinMult: 0 },
     ballCosts: getDefaultBallCosts(),
     upgradeCosts: getDefaultUpgradeCosts(),
@@ -1050,6 +1090,14 @@ export const useGameStore = create<GameStore>()(
         return;
       }
 
+      const ballTypes = Object.keys(BALL_TYPES) as BallType[];
+      const ballDamageMultipliers = Object.fromEntries(
+        ballTypes.map((type) => [type, state.getBallDamageMult(type)])
+      ) as Partial<Record<BallType, Decimal>>;
+      const ballSpeedMultipliers = Object.fromEntries(
+        ballTypes.map((type) => [type, state.getBallSpeedMult(type)])
+      ) as Partial<Record<BallType, Decimal>>;
+
       const sim = simulateOfflineBoard({
         width: state.canvasSize.width,
         height: state.canvasSize.height,
@@ -1058,6 +1106,8 @@ export const useGameStore = create<GameStore>()(
         speedMultiplier: state.getSpeedMult(),
         damageMultiplier: state.getDamageMult(),
         coinMultiplier: state.getCoinMult(),
+        ballDamageMultipliers,
+        ballSpeedMultipliers,
         prestigeLevel: state.prestigeLevel,
         currentTier: state.currentTier,
         initialBricksBroken: state.bricksBroken,
@@ -1394,6 +1444,27 @@ export const useGameStore = create<GameStore>()(
       return true;
     },
 
+    upgradeBall: (type) => {
+      const state = get();
+      const level = state.ballLevels[type];
+      if (level >= MAX_BALL_LEVEL) return false;
+      const cost = getBallUpgradeCost(type, level);
+      if (!state.coins.gte(cost)) return false;
+
+      set({
+        coins: state.coins.sub(cost),
+        ballLevels: { ...state.ballLevels, [type]: level + 1 },
+      });
+      playSound('purchase');
+      return true;
+    },
+
+    getBallDamageMult: (type) =>
+      getBallDamageMultiplier(type, get().ballLevels[type]),
+
+    getBallSpeedMult: (type) =>
+      getBallSpeedMultiplier(type, get().ballLevels[type]),
+
     canPrestige: () => {
       const state = get();
       return state.bricksBroken.gte(PRESTIGE_THRESHOLD);
@@ -1658,6 +1729,7 @@ export const useGameStore = create<GameStore>()(
         pendingAchievementUnlocks: [],
         claimedRunGoals: [],
         pendingRunGoalUnlocks: [],
+        ballLevels: getDefaultBallLevels(),
         pendingSaveError: null,
         timestamp: Date.now(),
       });
