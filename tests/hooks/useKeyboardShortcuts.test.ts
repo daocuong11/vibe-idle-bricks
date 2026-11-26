@@ -86,6 +86,58 @@ describe('useKeyboardShortcuts', () => {
     expect(onToggle).not.toHaveBeenCalled()
   })
 
+  it('does not pause when Space is pressed on a focused button, and lets the button keep the key', () => {
+    const onToggle = vi.fn()
+    renderHook(() => useKeyboardShortcuts({ onPauseToggle: onToggle }))
+
+    const button = document.createElement('button')
+    document.body.appendChild(button)
+    const event = fireKey(' ', button)
+    document.body.removeChild(button)
+
+    expect(onToggle).not.toHaveBeenCalled()
+    expect(event.defaultPrevented).toBe(false)
+  })
+
+  it('does not pause when "p" is pressed on a focused button', () => {
+    const onToggle = vi.fn()
+    renderHook(() => useKeyboardShortcuts({ onPauseToggle: onToggle }))
+
+    const button = document.createElement('button')
+    document.body.appendChild(button)
+    fireKey('p', button)
+    document.body.removeChild(button)
+
+    expect(onToggle).not.toHaveBeenCalled()
+  })
+
+  it('does not pause when Space is pressed on an element with role="button"', () => {
+    const onToggle = vi.fn()
+    renderHook(() => useKeyboardShortcuts({ onPauseToggle: onToggle }))
+
+    const div = document.createElement('div')
+    div.setAttribute('role', 'button')
+    document.body.appendChild(div)
+    fireKey(' ', div)
+    document.body.removeChild(div)
+
+    expect(onToggle).not.toHaveBeenCalled()
+  })
+
+  it('still resumes on Escape when a button is focused', () => {
+    const onToggle = vi.fn()
+    const onResume = vi.fn()
+    renderHook(() => useKeyboardShortcuts({ onPauseToggle: onToggle, onResume: onResume }))
+
+    const button = document.createElement('button')
+    document.body.appendChild(button)
+    fireKey('Escape', button)
+    document.body.removeChild(button)
+
+    expect(onResume).toHaveBeenCalledTimes(1)
+    expect(onToggle).not.toHaveBeenCalled()
+  })
+
   it('does nothing when the event has defaultPrevented = true', () => {
     const onToggle = vi.fn()
     renderHook(() => useKeyboardShortcuts({ onPauseToggle: onToggle }))
