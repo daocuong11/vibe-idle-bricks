@@ -2,12 +2,11 @@
 
 ## Current Work Focus
 
-Batch 7a (**Rewards and purchase QoL**) is implemented on
-`feat/batch7-rewards-purchases` (2026-11-26): achievements now grant one-time
-Blueprints exactly once and show the reward in the modal/toast, and the Shop has
-a per-ball **Max** purchase action. 490 tests across 40 files; #66 closes on
-merge, while #85 stays open for auto-buy and run goals. The simulation/economy
-issues #103, #106, #50, and #52 are closed.
+Batch 7a (**Rewards and purchase QoL**) is **complete** (2026-11-26,
+PR #119): achievements now grant one-time Blueprints exactly once and show the
+reward in the modal/toast, and the Shop has a per-ball **Max** purchase action.
+490 tests across 40 files; #66 is closed, while #85 stays open for auto-buy and
+run goals. The simulation/economy issues #103, #106, #50, and #52 are closed.
 
 Batch 6 (**Economy redesign**, #106) is **complete** (2026-11-26):
 - Headless balance harness (`src/game/model/balanceHarness.ts`, `scripts/balance-report.ts`) with greedy ROI strategy, income-by-tier, and cap-impact reports.
@@ -52,7 +51,7 @@ playtest and earlier batches.
 
 ## Recent Changes
 
-- Batch 7a: one-time Blueprint rewards for all 18 achievements, shown in the
+- Batch 7a (PR #119): one-time Blueprint rewards for all 18 achievements, shown in the
   achievements modal and unlock toast; Shop ball rows now support a **Max**
   purchase that spends what the player can afford up to `MAX_BALLS`. Tests cover
   reward idempotency, modal/toast display, batch purchase economics, and the cap.

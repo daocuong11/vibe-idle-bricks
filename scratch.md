@@ -105,14 +105,14 @@ Completed 2026-11-26: `src/game/model/balanceHarness.ts` + `scripts/balance-repo
 
 Issues: [#66], [#85], [#82], [#83], [#86], [#84].
 
-- [x] [#66] achievement rewards: one-time Blueprints, shown in the modal and toast. (Closes on merge.)
+- [x] [#66] achievement rewards: one-time Blueprints, shown in the modal and toast. Merged in #119.
 - [x] [#85] batch ball purchase via a per-ball **Max** action. Auto-buy and run goals remain.
 - [ ] [#82] gold and armored bricks MVP; spawn table plus in-game documentation.
 - [ ] [#83] per-ball progression (levels, fusion, or targeted abilities).
 - [ ] [#86] prestige tree and lifetime stats (after [#99]).
 - [ ] [#84] active layer only after the lane decision: optional bonus versus core mechanic.
 
-Batch 7a implemented 2026-11-26; #66 closes on merge, #85 remains open for
+Batch 7a merged in #119 on 2026-11-26; #66 closed, #85 remains open for
 auto-buy and run goals. Do not re-plan the rest; they are already scoped.
 
 ## Batch 8 — Visual leaves (after Batch 4)
