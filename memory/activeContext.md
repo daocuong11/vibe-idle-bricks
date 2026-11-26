@@ -11,9 +11,11 @@ rejection, storage-failure toasts, and an unversioned-save migration.
 
 The keyboard and audio halves of Batch 3 (#102/#79) are **complete**
 (2026-11-26): keyboard in PR #112 (consolidated from #109/#110) and audio in
-PR #114. Batch 4a is **complete** (2026-11-26, PR #115): real
-`phaser-engine` chunk via `codeSplitting`, plus explosion rims and ball
-silhouettes (#104/#60/#61). The Canvas2D spike and the #56 decision remain.
+PR #114. Batch 4 is **complete**: Batch 4a (PR #115) added the real
+`phaser-engine` chunk, explosion rims and ball silhouettes (#104/#60/#61);
+Batch 4b (PR #116) extracted `BoardSimulation`, benchmarked a DPR-aware
+Canvas2D adapter and decided to keep Phaser for Batch 5. Production HiDPI (#56)
+remains open.
 
 Batch 2 (#100/#76/#101) is **complete** (2026-11-26, PR #113): pagehide and
 hidden-tab saves, 60-second-plus background catch-up through the shared
@@ -26,6 +28,12 @@ TypeScript 6.0.3. The entries below are historical context from the November
 playtest and earlier batches.
 
 ## Recent Changes
+
+- Batch 4b (PR #116): the Canvas2D spike cut lazy board JavaScript by 96.3%
+  and produced sharper DPR 2 text, but measured slower at 50 balls while
+  drawing 4.84× the backing pixels. Decision: keep Phaser for Batch 5; revisit
+  after snapshot-fed rendering with a static brick/text layer. Shared
+  simulation now lives in `BoardSimulation`, with resize fixed and 432 tests.
 
 - Batch 4a (#104/#60/#61, PR #115): Rolldown `codeSplitting` now emits a real
   `phaser-engine` chunk (game engine 62 kB, Phaser 1.37 MB, no size warning);

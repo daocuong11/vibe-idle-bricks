@@ -41,6 +41,7 @@
 - Keyboard shortcuts ignore interactive controls so Space activates a focused button instead of pausing
 - Audio unlocks from the first gesture; ball/brick/coin cues have a 30 ms cooldown and an 8-voice, 600 ms cap
 - Explosions use a faint core with a bright rim; ball types have distinct silhouettes (ring, hexagon, star, spikes, crosshair)
+- Canvas2D spike reduced board JS by 96.3% and sharpened DPR 2 text, but was slower at 50 balls; Phaser remains the production renderer for Batch 5, with the simulation extracted to `BoardSimulation`
 
 ## What's Left to Build
 
@@ -80,7 +81,7 @@
 - TypeScript 6.0.3 (strict, `erasableSyntaxOnly`)
 - ESLint 10.12.0 + typescript-eslint 8.71.1
 - jsdom 30.1.2
-- **Test count**: 425 passing across 35 files
+- **Test count**: 432 passing across 36 files
 - **CI**: `.github/workflows/ci.yml` runs lint, typecheck, `test:run`, and build on PRs and `main`
 
 ## Known Issues
