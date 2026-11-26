@@ -23,7 +23,6 @@ export const BRICK_HEIGHT = 25;
 export const BRICK_PADDING = 5;
 
 export const SPEED_STEER_STRENGTH = 0.06;
-export const TRAIL_LENGTH_FACTOR = 0.15;
 
 export const HIT_FLASH_DURATION_MS = 50;
 export const FLOATING_TEXT_LIFE_MS = 1000;

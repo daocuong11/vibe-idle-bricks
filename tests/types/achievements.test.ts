@@ -7,6 +7,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import Decimal from 'break_infinity.js'
+import { MAX_SPEED_UPGRADE } from '../../src/types/game'
 import {
   ACHIEVEMENTS,
   ACHIEVEMENTS_BY_ID,
@@ -142,9 +143,16 @@ describe('evaluateAchievements', () => {
     expect(coin).toContain('first_upgrade')
   })
 
-  it('unlocks max_speed at speed=50 and max_damage at damage=50', () => {
+  it('unlocks max_speed at MAX_SPEED_UPGRADE and max_damage at damage=50', () => {
+    const belowMax = evaluateAchievements(
+      buildState({ upgrades: { speed: MAX_SPEED_UPGRADE - 1, damage: 49, coinMult: 0 } }),
+      {},
+    )
+    expect(belowMax).not.toContain('max_speed')
+    expect(belowMax).not.toContain('max_damage')
+
     const r = evaluateAchievements(
-      buildState({ upgrades: { speed: 50, damage: 50, coinMult: 0 } }),
+      buildState({ upgrades: { speed: MAX_SPEED_UPGRADE, damage: 50, coinMult: 0 } }),
       {},
     )
     expect(r).toContain('max_speed')

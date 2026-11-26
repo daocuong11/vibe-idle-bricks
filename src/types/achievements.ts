@@ -8,7 +8,7 @@
  * Phaser or a full game session.
  */
 import type Decimal from 'break_infinity.js';
-import type { BallType, Upgrades } from './game';
+import { MAX_SPEED_UPGRADE, type BallType, type Upgrades } from './game';
 
 /** Minimal shape of the game state needed to evaluate achievement conditions. */
 export interface AchievementGameState {
@@ -172,7 +172,7 @@ export const ACHIEVEMENTS: ReadonlyArray<AchievementDef> = [
     name: 'Lightspeed',
     description: 'Max out the Speed upgrade.',
     icon: '🚀',
-    condition: (s) => s.upgrades.speed >= 50,
+    condition: (s) => s.upgrades.speed >= MAX_SPEED_UPGRADE,
   },
   {
     id: 'max_damage',

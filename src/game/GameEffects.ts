@@ -2,6 +2,7 @@ import * as Phaser from 'phaser';
 import type { BrickData, Explosion } from '../types';
 import { getAccessibleTierColor, type ColorblindMode } from '../utils';
 import { getParsedColor } from './color';
+import { FLOATING_TEXT_LIFE_MS } from './constants';
 import { useSettingsStore } from '../store/settingsStore';
 
 export type FloatingTextKind = 'damage' | 'coin';
@@ -18,7 +19,6 @@ interface FloatingTextEntry {
  * board is all coins.
  */
 export const MAX_ACTIVE_FLOATING_TEXTS = 8;
-const FLOATING_TEXT_LIFE_MS = 1000;
 
 // Near-white vs gold stays distinguishable under red-green colour blindness;
 // the '-' and '¢' markers are the second cue.
