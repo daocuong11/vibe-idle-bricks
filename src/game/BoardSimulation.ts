@@ -1,6 +1,12 @@
 import Decimal from 'break_infinity.js';
 import { registerBoardSyncHandlers, useGameStore } from '../store';
-import { calculateTierForBricks, type BrickData } from '../types';
+import {
+  BALL_TYPES,
+  calculateTierForBricks,
+  type BallLevels,
+  type BallType,
+  type BrickData,
+} from '../types';
 import { formatNumber } from '../utils';
 import { playSound } from '../utils/audio';
 import { BrickManager } from './BrickManager';
@@ -36,6 +42,21 @@ export interface BoardEffects {
   shakeExplosion(): void;
 }
 
+const buildBallMultipliers = (
+  store: ReturnType<typeof useGameStore.getState>
+): {
+  damage: Partial<Record<BallType, Decimal>>;
+  speed: Partial<Record<BallType, Decimal>>;
+} => {
+  const damage: Partial<Record<BallType, Decimal>> = {};
+  const speed: Partial<Record<BallType, Decimal>> = {};
+  for (const type of Object.keys(BALL_TYPES) as BallType[]) {
+    damage[type] = store.getBallDamageMult(type);
+    speed[type] = store.getBallSpeedMult(type);
+  }
+  return { damage, speed };
+};
+
 /** Platform adapter: synchronizes the store and turns core events into effects. */
 export class BoardSimulation {
   private readonly effects: BoardEffects;
@@ -53,6 +74,7 @@ export class BoardSimulation {
   private pendingCoins: Decimal = ZERO_DECIMAL;
   private pendingBricksBroken = 0;
   private boardDirty = false;
+  private syncedBallLevels: BallLevels | null = null;
 
   constructor(
     size: { width: number; height: number },
@@ -87,6 +109,8 @@ export class BoardSimulation {
     this.publishedExplosions = store.explosions;
     this.publishedSeed = store.boardSeed;
 
+    const ballMultipliers = buildBallMultipliers(store);
+    this.syncedBallLevels = store.ballLevels;
     this.world = createBoardWorld({
       width: store.canvasSize.width,
       height: store.canvasSize.height,
@@ -96,6 +120,8 @@ export class BoardSimulation {
       speedMultiplier: store.getSpeedMult(),
       damageMultiplier: store.getDamageMult(),
       coinMultiplier: store.getCoinMult(),
+      ballDamageMultipliers: ballMultipliers.damage,
+      ballSpeedMultipliers: ballMultipliers.speed,
       time: performance.now(),
     });
 
@@ -114,6 +140,12 @@ export class BoardSimulation {
     this.world.speedMultiplier = store.getSpeedMult();
     this.world.damageMultiplier = store.getDamageMult();
     this.world.coinMultiplier = store.getCoinMult();
+    if (this.syncedBallLevels !== store.ballLevels) {
+      const ballMultipliers = buildBallMultipliers(store);
+      this.world.ballDamageMultipliers = ballMultipliers.damage;
+      this.world.ballSpeedMultipliers = ballMultipliers.speed;
+      this.syncedBallLevels = store.ballLevels;
+    }
 
     if (this.publishedSeed !== store.boardSeed) {
       if (!this.hasExternalRandom && hasSeedState(this.randomSource)) {

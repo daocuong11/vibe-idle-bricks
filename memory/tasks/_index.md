@@ -10,6 +10,7 @@ _No pending tasks._
 
 ## Completed
 
+- [TASK016 — Per-ball progression (#83)](../designs/DESIGN016-per-ball-progression.md) (2026-11-27, implemented on feat/per-ball-progression; PR pending).
 - [TASK015 — Run goals (#85)](../designs/DESIGN015-run-goals.md) (2026-11-27, PR #123).
 - [TASK013 — Prestige tree and lifetime records (#86)](../designs/DESIGN014-prestige-tree-records.md) (2026-11-26, PR #121).
 - [TASK012 — Batch 5 Stages 1–2: pure simulation core and 10 Hz board mirror](../designs/DESIGN012-simulation-core.md) (2026-11-26, Stage 1 PR #117, Stage 2 PR #118; save/offline stages deferred).

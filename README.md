@@ -101,7 +101,7 @@ Ball stats, costs, tier formulas, and the prestige multiplier live in [`src/type
 
 Prestige resets the current run at 10,000 bricks while preserving upgrades, Blueprints, achievements, and the permanent prestige tree. The tree has three uncapped nodes: **Might** (+10% damage), **Fortune** (+10% live/simulated coin income), and **Insight** (+10% idle/offline income) per level. Each node costs `ceil(baseCost × 1.6^level)` Blueprints.
 
-The Footer **Records** dialog shows lifetime credited coins, total bricks, best/current tier, run bricks, prestiges, Blueprints, and active playtime. Stats shows per-run goals at 100/500/1,000 bricks, each awarding Blueprints once per run. Saves use version 5 and migrate older saves with zeroed tree/records and run-goal claims.
+The Footer **Records** dialog shows lifetime credited coins, total bricks, best/current tier, run bricks, prestiges, Blueprints, and active playtime. Stats shows per-run goals at 100/500/1,000 bricks, each awarding Blueprints once per run. Each ball type has a permanent, coin-purchased level: damage for every type plus speed for Fast, shown in the Shop and capped at 3× per-type speed. Saves use version 6 and migrate older saves with zeroed tree/records, run-goal claims, and ball levels.
 
 ## 📁 Project Structure
 
