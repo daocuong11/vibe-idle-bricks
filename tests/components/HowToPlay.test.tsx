@@ -3,10 +3,11 @@ import { render, screen } from '@testing-library/react';
 import { HowToPlay } from '../../src/components/HowToPlay';
 
 describe('HowToPlay', () => {
-  it('advertises click damage in the always-visible summary', () => {
+  it('advertises click damage and focus in the always-visible summary', () => {
     render(<HowToPlay />);
-    const summary = screen.getByText(/Click a brick to chip it/);
+    const summary = screen.getByText(/How to play/);
     expect(summary.closest('summary')).not.toBeNull();
+    expect(summary).toHaveTextContent(/Click a brick to chip it/);
   });
 
   it('lists the controls and is collapsed by default', () => {

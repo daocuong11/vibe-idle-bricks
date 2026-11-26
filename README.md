@@ -31,10 +31,11 @@ An idle/incremental breakout-style game where balls autonomously smash through b
 ## 🎮 How to Play
 
 1. **Watch balls bounce** — They automatically break bricks and earn coins.
-2. **Buy upgrades** — Increase global speed, damage, and coin multipliers from the Shop.
-3. **Unlock new balls** — Purchase specialized balls like Plasma (piercing) or Explosive (AoE).
-4. **Tier up** — Every 100 bricks broken raises the tier (max 20); higher tiers are tougher but pay more.
-5. **Prestige** — Break 10,000 bricks in a run to reset coins, balls, and tier for a permanent ×1.75 damage and coin multiplier. Upgrades are kept.
+2. **Click to focus** — Clicking a brick chips it and marks it as the priority target for targeting balls; ignoring clicks falls back to the weakest brick.
+3. **Buy upgrades** — Increase global speed, damage, and coin multipliers from the Shop, or enable auto-buy in Settings (it keeps a 50% coin reserve).
+4. **Unlock new balls** — Purchase specialized balls like Plasma (piercing) or Explosive (AoE).
+5. **Tier up** — Every 100 bricks broken raises the tier. Past tier 20, health grows faster than value, so upgrades matter more.
+6. **Prestige** — Break 10,000 bricks in a run to reset coins, balls, and tier for a permanent ×1.25 damage/coin multiplier, Blueprints, and the permanent prestige tree. Upgrades and tree nodes are kept.
 
 ## 🎱 Ball Types
 
@@ -45,7 +46,7 @@ An idle/incremental breakout-style game where balls autonomously smash through b
 | 🟠 **Heavy** | 100 | 3× damage, but moves slower. Good for high-health bricks. |
 | 🟣 **Plasma** | 500 | Pierces through bricks, damaging multiple in a line. |
 | 🔴 **Explosive** | 1,000 | Deals area-of-effect damage to nearby bricks on impact. |
-| 🟢 **Sniper** | 3,500 | Actively steers towards the weakest brick on screen. |
+| 🟢 **Sniper** | 3,500 | Actively steers towards the priority brick, or the weakest brick on screen. |
 
 ## 🚀 Getting Started
 

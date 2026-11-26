@@ -11,9 +11,10 @@ import { Stats } from './components/Stats';
 import { ToastProvider, useToast } from './components/Toast';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useAchievementToasts } from './hooks/useAchievementToasts';
+import { useAutoBuy } from './hooks/useAutoBuy';
 import { useAudioUnlock } from './hooks/useAudioUnlock';
 import { useLifecyclePersistence } from './hooks/useLifecyclePersistence';
-import { useGameStore } from './store';
+import { useGameStore, useSettingsStore } from './store';
 import './App.css';
 
 const LazyPhaserGame = lazy(async () => {
@@ -119,7 +120,13 @@ function GameApp() {
 
   useAchievementToasts();
   useAudioUnlock();
+  useAutoBuy();
   useLifecyclePersistence();
+
+  const hydrateSettings = useSettingsStore((state) => state.hydrate);
+  useEffect(() => {
+    hydrateSettings();
+  }, [hydrateSettings]);
 
   useEffect(() => {
     if (hasLoadedRef.current) return;

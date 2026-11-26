@@ -9,6 +9,7 @@ describe('SettingsDrawer', () => {
       soundEnabled: true,
       reducedMotion: false,
       colorblindMode: 'off',
+      autoBuyEnabled: false,
     });
   });
 
@@ -36,6 +37,14 @@ describe('SettingsDrawer', () => {
     expect(motion.checked).toBe(false);
     fireEvent.click(motion);
     expect(useSettingsStore.getState().reducedMotion).toBe(true);
+  });
+
+  it('toggles auto-buy', () => {
+    render(<SettingsDrawer open={true} onClose={() => undefined} />);
+    const autoBuy = screen.getByTestId('setting-auto-buy') as HTMLInputElement;
+    expect(autoBuy.checked).toBe(false);
+    fireEvent.click(autoBuy);
+    expect(useSettingsStore.getState().autoBuyEnabled).toBe(true);
   });
 
   it('selects a colorblind option', () => {

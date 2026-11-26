@@ -10,12 +10,15 @@ export interface Settings {
   soundEnabled: boolean;
   reducedMotion: boolean;
   colorblindMode: ColorblindMode;
+  /** When enabled, the idle loop buys affordable upgrades/balls but keeps a 50% reserve. */
+  autoBuyEnabled: boolean;
 }
 
 export interface SettingsStore extends Settings {
   setSoundEnabled: (enabled: boolean) => void;
   setReducedMotion: (enabled: boolean) => void;
   setColorblindMode: (mode: ColorblindMode) => void;
+  setAutoBuyEnabled: (enabled: boolean) => void;
   hydrate: () => void;
 }
 
@@ -23,6 +26,7 @@ const DEFAULT_SETTINGS: Settings = {
   soundEnabled: true,
   reducedMotion: false,
   colorblindMode: 'off',
+  autoBuyEnabled: false,
 };
 
 const isColorblindMode = (value: unknown): value is ColorblindMode =>
@@ -52,6 +56,7 @@ const parseStoredSettings = (raw: string | null): Settings => {
       soundEnabled: candidate.soundEnabled !== false,
       reducedMotion: candidate.reducedMotion === true,
       colorblindMode: isColorblindMode(candidate.colorblindMode) ? candidate.colorblindMode : 'off',
+      autoBuyEnabled: candidate.autoBuyEnabled === true,
     };
   } catch {
     return DEFAULT_SETTINGS;
@@ -78,20 +83,26 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   setSoundEnabled: (enabled) => {
     getAudioModule().setEnabled(enabled);
     set({ soundEnabled: enabled });
-    const { reducedMotion, colorblindMode } = get();
-    persist({ soundEnabled: enabled, reducedMotion, colorblindMode });
+    const { reducedMotion, colorblindMode, autoBuyEnabled } = get();
+    persist({ soundEnabled: enabled, reducedMotion, colorblindMode, autoBuyEnabled });
   },
 
   setReducedMotion: (enabled) => {
     set({ reducedMotion: enabled });
-    const { soundEnabled, colorblindMode } = get();
-    persist({ soundEnabled, reducedMotion: enabled, colorblindMode });
+    const { soundEnabled, colorblindMode, autoBuyEnabled } = get();
+    persist({ soundEnabled, reducedMotion: enabled, colorblindMode, autoBuyEnabled });
   },
 
   setColorblindMode: (mode) => {
     set({ colorblindMode: mode });
-    const { soundEnabled, reducedMotion } = get();
-    persist({ soundEnabled, reducedMotion, colorblindMode: mode });
+    const { soundEnabled, reducedMotion, autoBuyEnabled } = get();
+    persist({ soundEnabled, reducedMotion, colorblindMode: mode, autoBuyEnabled });
+  },
+
+  setAutoBuyEnabled: (enabled) => {
+    set({ autoBuyEnabled: enabled });
+    const { soundEnabled, reducedMotion, colorblindMode } = get();
+    persist({ soundEnabled, reducedMotion, colorblindMode, autoBuyEnabled: enabled });
   },
 
   hydrate: () => {

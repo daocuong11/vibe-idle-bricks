@@ -321,6 +321,41 @@ describe('gameStore', () => {
     })
   })
 
+  describe('autoBuyTick', () => {
+    it('buys an affordable upgrade while keeping half the coins', () => {
+      useGameStore.setState({
+        coins: new Decimal(1000),
+        upgrades: { speed: 0, damage: 0, coinMult: 0 },
+        upgradeCosts: {
+          speed: new Decimal(50),
+          damage: new Decimal(75),
+          coinMult: new Decimal(100),
+        },
+        balls: [],
+      })
+
+      expect(useGameStore.getState().autoBuyTick()).toBe(true)
+      expect(useGameStore.getState().upgrades.speed).toBe(1)
+      expect(useGameStore.getState().coins.eq(950)).toBe(true)
+    })
+
+    it('does not buy when the reserve would be violated', () => {
+      useGameStore.setState({
+        coins: new Decimal(5),
+        upgrades: { speed: 0, damage: 0, coinMult: 0 },
+        balls: [],
+      })
+
+      expect(useGameStore.getState().autoBuyTick()).toBe(false)
+    })
+
+    it('does nothing while paused', () => {
+      useGameStore.setState({ coins: new Decimal(1000), isPaused: true })
+      expect(useGameStore.getState().autoBuyTick()).toBe(false)
+      expect(useGameStore.getState().upgrades.speed).toBe(0)
+    })
+  })
+
   describe('buyUpgrade', () => {
     it('should return false when not enough coins', () => {
       const result = useGameStore.getState().buyUpgrade('speed')

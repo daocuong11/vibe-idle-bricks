@@ -66,6 +66,8 @@
 - [x] Achievements system (Shipped in PR3, commit `59106f6` — 18 achievements, gallery modal, toasts, persisted in save); each unlock now grants one-time Blueprints shown in the modal/toast
 - [x] Shop ball rows support a **Max** purchase up to `MAX_BALLS`
 - [x] Gold bricks pay 5×; armored bricks have 2× health and resist non-piercing hits (heavy/plasma/explosive pierce)
+- [x] Click a brick to chip it and mark it as a priority target for targeting balls; idle fallback targets the weakest brick
+- [x] Optional auto-buy buys affordable upgrades/balls once per second while keeping a 50% coin reserve
 - [ ] Statistics/history screen (Deferred; not in PR3)
 - [ ] More ball types
 - [ ] Special brick types (bonus coins, power-ups)
@@ -93,7 +95,7 @@
 - TypeScript 6.0.3 (strict, `erasableSyntaxOnly`)
 - ESLint 10.12.0 + typescript-eslint 8.71.1
 - jsdom 30.1.2
-- **Test count**: 510 passing across 42 files
+- **Test count**: 519 passing across 43 files
 - **Core coverage**: 99.41% statements (170/171), 100% lines/functions, 87.34% branches
 - **Board publication**: at most 10 store mirror updates per second; renderers read live runtime state
 - **CI**: `.github/workflows/ci.yml` runs lint, typecheck, `test:run`, and build on PRs and `main`

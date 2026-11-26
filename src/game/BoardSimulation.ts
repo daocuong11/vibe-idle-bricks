@@ -25,7 +25,10 @@ const hasSeedState = (source: RandomSource): source is SeededRandomSource =>
   typeof (source as Partial<SeededRandomSource>).getState === 'function' &&
   typeof (source as Partial<SeededRandomSource>).setState === 'function';
 
-export type BoardRenderState = Pick<BoardWorld, 'balls' | 'bricks' | 'explosions'>;
+export type BoardRenderState = Pick<
+  BoardWorld,
+  'balls' | 'bricks' | 'explosions' | 'priorityBrickId'
+>;
 
 export interface BoardEffects {
   showFloatingText(x: number, y: number, text: string, kind: 'damage' | 'coin'): void;
@@ -141,7 +144,12 @@ export class BoardSimulation {
   }
 
   getRenderState(): BoardRenderState {
-    return { balls: this.world.balls, bricks: this.world.bricks, explosions: this.world.explosions };
+    return {
+      balls: this.world.balls,
+      bricks: this.world.bricks,
+      explosions: this.world.explosions,
+      priorityBrickId: this.world.priorityBrickId ?? null,
+    };
   }
 
   private discardPendingRewards(): void {
@@ -289,6 +297,11 @@ export class BoardSimulation {
 
   handleBrickClick(x: number, y: number) {
     this.syncWorld();
+    const clicked = this.findBrickAt(x, y);
+    if (clicked) {
+      // Active play: a click chips the brick and focuses fire on it.
+      this.world.priorityBrickId = clicked.id;
+    }
     if (applyBoardClickDamage(this.world, x, y)) {
       this.applyEvents(takeBoardEvents(this.world));
       refreshBoardWorld(this.world);

@@ -128,7 +128,7 @@ export class GameScene extends Phaser.Scene {
     if (frameDelta === undefined) return;
     const state = this.simulation.getRenderState();
     this.ballRenderer.render(state.balls);
-    this.brickRenderer.render(state.bricks);
+    this.brickRenderer.render(state.bricks, state.priorityBrickId);
     this.effects.renderExplosions(state.explosions);
     this.effects.updateFloatingTexts(frameDelta);
   }

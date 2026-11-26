@@ -2,6 +2,15 @@
 
 ## Current Work Focus
 
+Batch 7c (**Active focus + auto-buy**) is implemented on
+`feat/active-focus-autobuy` (2026-11-27): clicking a brick now marks it as the
+priority target for targeting balls, with a yellow focus ring in Phaser and the
+Canvas spike; idle play falls back to the weakest brick. Settings gain an
+opt-in auto-buy that buys affordable upgrades/balls once per second while
+preserving a 50% coin reserve. Settings now hydrate at app start. 519 tests
+across 43 files; #84 closes on merge and #85 remains open for run goals/offline
+upgrade.
+
 Issue #86 (**Prestige tree and lifetime records**) is **complete**
 (2026-11-26, PR #121): uncapped Might/Fortune/Insight Blueprint nodes,
 shop cards and purchase controls, lifetime coins/best tier/playtime tracking,
@@ -66,6 +75,11 @@ TypeScript 6.0.3. The entries below are historical context from the November
 playtest and earlier batches.
 
 ## Recent Changes
+
+- Batch 7c: click-to-mark priority targeting in the pure core, BoardSimulation,
+  Phaser renderer, and Canvas spike; opt-in Settings auto-buy with a 50% coin
+  reserve; app-start settings hydration. Regression tests cover targeting,
+  focus rendering, reserve behavior, persistence, and the one-second tick.
 
 - Issue #86 (PR #121): permanent Blueprint tree nodes (Might/Fortune/Insight),
   lifetime coin/best-tier/playtime records, Records modal, and v4 migration.

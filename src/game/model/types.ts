@@ -41,5 +41,7 @@ export interface BoardWorld {
   time: number;
   spatialGrid: SpatialGrid;
   target: BrickData | null;
+  /** Player-marked priority target; cleared when it is destroyed or missing. */
+  priorityBrickId?: string | null;
   events: BoardEvent[];
 }

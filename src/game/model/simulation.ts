@@ -39,6 +39,7 @@ interface BoardWorldInput {
   speedMultiplier?: number;
   damageMultiplier?: Decimal | number;
   coinMultiplier?: Decimal | number;
+  priorityBrickId?: string | null;
   time?: number;
 }
 
@@ -61,6 +62,7 @@ export const createBoardWorld = (input: BoardWorldInput): BoardWorld => {
     time: input.time ?? 0,
     spatialGrid: new SpatialGrid(100),
     target: null,
+    priorityBrickId: input.priorityBrickId ?? null,
     events: [],
   };
   refreshBoardWorld(world);
@@ -70,6 +72,16 @@ export const createBoardWorld = (input: BoardWorldInput): BoardWorld => {
 /** Rebuilds derived collision/target data after a board replacement or refill. */
 export const refreshBoardWorld = (world: BoardWorld): void => {
   world.spatialGrid.rebuild(world.bricks);
+  const marked = world.priorityBrickId
+    ? world.bricks.find(
+        (brick) => brick.id === world.priorityBrickId && brick.health.gt(0)
+      )
+    : undefined;
+  if (marked) {
+    world.target = marked;
+    return;
+  }
+  world.priorityBrickId = null;
   world.target = findWeakestBrick(world.bricks);
 };
 
