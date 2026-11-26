@@ -4,15 +4,18 @@ import {
   COST_MULTIPLIER,
   MAX_BALLS,
   MAX_SPEED_UPGRADE,
-  MAX_TIER,
   PRESTIGE_MULTIPLIER,
   PRESTIGE_THRESHOLD,
   STARTING_COINS,
   UPGRADE_COST_MULTIPLIER,
+  UPGRADE_MULT_BASE,
   UPGRADE_MULTIPLIER,
   type BallType,
   type Upgrades,
 } from '../../types/game.ts';
+
+/** Legacy tier cap used when modeling pre-Batch 6 capped scenarios. */
+export const LEGACY_MAX_TIER = 20;
 
 /** Default calibration factor matching LIVE_INCOME_CALIBRATION in earnings.ts. */
 export const DEFAULT_INCOME_CALIBRATION = 0.1;
@@ -84,10 +87,10 @@ export interface BalanceConfig {
 export const DEFAULT_BALANCE_CONFIG: BalanceConfig = {
   maxBalls: MAX_BALLS,
   maxSpeedUpgrade: MAX_SPEED_UPGRADE,
-  unboundedTiers: false,
-  maxTier: MAX_TIER,
-  upgradeMode: 'additive',
-  upgradeMultBase: 1.08,
+  unboundedTiers: true,
+  maxTier: LEGACY_MAX_TIER,
+  upgradeMode: 'multiplicative',
+  upgradeMultBase: UPGRADE_MULT_BASE,
   upgradeAdditiveStep: UPGRADE_MULTIPLIER,
   prestigeMultiplier: PRESTIGE_MULTIPLIER,
   prestigeLevel: 0,

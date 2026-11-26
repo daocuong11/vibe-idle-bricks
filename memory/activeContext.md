@@ -2,6 +2,13 @@
 
 ## Current Work Focus
 
+Batch 6 (**Economy redesign**, #106) is **complete** (2026-11-26):
+- Headless balance harness (`src/game/model/balanceHarness.ts`, `scripts/balance-report.ts`) with greedy ROI strategy, income-by-tier, and cap-impact reports.
+- Removed `MAX_TIER` and `MAX_PRESTIGE_LEVEL` hard caps; added unbounded `Decimal` exponential wall scaling past tier 20 (`1.18^(t-20)` health / `1.12^(t-20)` value).
+- Multiplicative `damage` and `coinMult` upgrades (`1.08^level` as `Decimal`); `speed` remains additive and capped at `MAX_SPEED_UPGRADE = 50`.
+- Prestige redesigned to `1.25^prestigeLevel` (`Decimal`) + persistent **Blueprints** (`SAVE_VERSION = 3`, v0/v1/v2→v3 migration), shown in Stats and Prestige UI.
+- Raised `MAX_BALLS` to `100`. Full suite: 483 tests across 40 files. Design: `memory/designs/DESIGN013-economy-redesign.md`.
+
 Batch 5 (**Simulation core**, #103) is **complete** (2026-11-26):
 - Stage 1 (PR #117): platform-free `src/game/model/` core with `BoardSimulation` adapter.
 - Stage 2 (PR #118): live 60 fps renderer reads, 10 Hz store board mirror, independent external adoption.

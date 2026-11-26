@@ -94,12 +94,12 @@ and reward-write batching completed 2026-11-26, documented in
 
 Issues: [#106]; rewrite or close [#50].
 
-- [ ] Build a headless balance harness: time-to-prestige, income by tier, cap impact, and a greedy buy strategy.
-- [ ] Choose curves: exponential wall level, multiplicative upgrades, prestige currency, small base multiplier.
-- [ ] Remove MAX_TIER and MAX_PRESTIGE_LEVEL, or convert them into unlocks; keep MAX_BALLS only as a performance guard.
-- [ ] Document the formulas in one place; update [#50]'s body or close it.
+- [x] Build a headless balance harness: time-to-prestige, income by tier, cap impact, and a greedy buy strategy.
+- [x] Choose curves: exponential wall level, multiplicative upgrades, prestige currency, small base multiplier.
+- [x] Remove MAX_TIER and MAX_PRESTIGE_LEVEL, or convert them into unlocks; keep MAX_BALLS only as a performance guard.
+- [x] Document the formulas in one place; update [#50]'s body or close it.
 
-Coordinate: land the curves before [#82]/[#83]/[#86] so content is tuned once.
+Completed 2026-11-26: `src/game/model/balanceHarness.ts` + `scripts/balance-report.ts`, unbounded `Decimal` tier/prestige scaling (exponential wall past tier 20), multiplicative `damage`/`coinMult` (`1.08^level`) with capped additive `speed` (`MAX_SPEED_UPGRADE = 50`), `PRESTIGE_MULTIPLIER = 1.25` + persistent **Blueprints** (`SAVE_VERSION = 3` with v0/v1/v2→v3 migration), and `MAX_BALLS = 100`. Documented in `memory/designs/DESIGN013-economy-redesign.md`. Ready to close [#106] and [#50].
 
 ## Batch 7 — Content (2–4 weeks, parallelizable)
 
