@@ -51,22 +51,72 @@ const createText = (): FakeText => {
   return fake
 }
 
+class RecordingGraphics {
+  calls: string[] = []
+
+  clear() {
+    this.calls = []
+  }
+
+  fillStyle() {
+    this.calls.push('fillStyle')
+  }
+
+  lineStyle() {
+    this.calls.push('lineStyle')
+  }
+
+  fillCircle() {
+    this.calls.push('fillCircle')
+  }
+
+  strokeCircle() {
+    this.calls.push('strokeCircle')
+  }
+
+  destroy() {}
+}
+
 const createEffects = () => {
   const texts: FakeText[] = []
+  const graphics = new RecordingGraphics()
   const scene = {
+    textures: { exists: () => true },
     add: {
       text: () => {
         const text = createText()
         texts.push(text)
         return text
       },
+      graphics: () => graphics,
+      particles: () => ({
+        setPosition: () => undefined,
+        setParticleTint: () => undefined,
+        explode: () => undefined,
+        destroy: () => undefined,
+      }),
     },
   } as unknown as ConstructorParameters<typeof GameEffects>[0]
-  return { effects: new GameEffects(scene), texts }
+  return { effects: new GameEffects(scene), texts, graphics }
 }
 
 afterEach(() => {
   useSettingsStore.setState({ reducedMotion: false })
+})
+
+describe('GameEffects explosions', () => {
+  it('draws a faint core and two bright rims so bricks stay readable', () => {
+    const { effects, graphics } = createEffects()
+    effects.initialize()
+
+    effects.renderExplosions([
+      { x: 100, y: 100, radius: 70, life: 150, maxLife: 300 },
+    ])
+
+    expect(graphics.calls.filter((call) => call === 'fillCircle')).toHaveLength(1)
+    expect(graphics.calls.filter((call) => call === 'strokeCircle')).toHaveLength(2)
+    expect(graphics.calls.filter((call) => call === 'lineStyle')).toHaveLength(2)
+  })
 })
 
 describe('GameEffects floating text', () => {

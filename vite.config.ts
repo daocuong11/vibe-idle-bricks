@@ -6,21 +6,16 @@ export default defineConfig({
   plugins: [react()],
   base: '/vibe-idle-bricks/',
   build: {
-    // Phaser remains a large third-party dependency, but it now loads behind a
-    // lazy boundary and no longer impacts the critical startup bundle. Keep it
-    // split into its own async chunk and raise the warning threshold to match
-    // that deferred-only cost.
-    chunkSizeWarningLimit: 1300,
-    rollupOptions: {
+    // Phaser is a deferred engine chunk; the startup bundle stays small. The
+    // limit covers the engine chunk itself, which is loaded behind Suspense.
+    chunkSizeWarningLimit: 1500,
+    rolldownOptions: {
       output: {
-        manualChunks(id) {
-          if (id.includes('/node_modules/phaser/')) {
-            return 'phaser-engine';
-          }
-
-          if (id.includes('/src/game/') || id.includes('/src/components/PhaserGame.tsx')) {
-            return 'game-engine';
-          }
+        codeSplitting: {
+          groups: [
+            { name: 'phaser-engine', test: /node_modules[\\/]phaser/ },
+            { name: 'game-engine', test: /src[\\/]game[\\/]|src[\\/]components[\\/]PhaserGame/ },
+          ],
         },
       },
     },

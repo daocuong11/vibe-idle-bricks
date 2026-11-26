@@ -11,7 +11,9 @@ rejection, storage-failure toasts, and an unversioned-save migration.
 
 The keyboard and audio halves of Batch 3 (#102/#79) are **complete**
 (2026-11-26): keyboard in PR #112 (consolidated from #109/#110) and audio in
-PR #114. Next is the rendering decision in Batch 4.
+PR #114. Batch 4a is implemented: real `phaser-engine` chunk via
+`codeSplitting`, plus explosion and ball silhouettes (#104/#60/#61). The
+Canvas2D spike and the #56 decision remain.
 
 Batch 2 (#100/#76/#101) is **complete** (2026-11-26, PR #113): pagehide and
 hidden-tab saves, 60-second-plus background catch-up through the shared
