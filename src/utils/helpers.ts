@@ -4,10 +4,11 @@ import type { BallType, BallData } from '../types';
 
 /**
  * Generates a unique 9-character string ID.
+ * @param random - Optional source for deterministic entity IDs.
  * @returns {string} A random alphanumeric string.
  */
-export const generateId = (): string => {
-  return Math.random().toString(36).substring(2, 11);
+export const generateId = (random: () => number = Math.random): string => {
+  return random().toString(36).substring(2, 11);
 };
 
 /**

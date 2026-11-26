@@ -80,6 +80,7 @@ it('applies explosive damage to nearby bricks', () => {
   expect(remaining).not.toContain(first.id);
   expect(remaining).not.toContain(second.id);
   expect(effects.shakeExplosion).toHaveBeenCalledTimes(1);
+  expect(useGameStore.getState().explosions[0].life).toBe(300 - FIXED_STEP);
 });
 
 it('refills the board up to the minimum after it is cleared', () => {

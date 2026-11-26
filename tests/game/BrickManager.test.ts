@@ -1,9 +1,24 @@
 import { describe, it, expect } from 'vitest';
 import { BrickManager } from '../../src/game/BrickManager';
+import { createSeededRandom } from '../../src/game/model/rng';
 import { BRICK_WIDTH, BRICK_HEIGHT, BRICK_PADDING, MAX_ROWS_FILL_FACTOR, ARENA_FLOOR_HEIGHT, getSpawnZoneHeight } from '../../src/game/constants';
 
 describe('BrickManager', () => {
   describe('generateBricks', () => {
+    it('reproduces tiers and entity IDs from the same seed', () => {
+      const first = new BrickManager({ width: 800, height: 600 }, createSeededRandom(42));
+      const second = new BrickManager({ width: 800, height: 600 }, createSeededRandom(42));
+
+      expect(first.generateBricks(50, 5)).toEqual(second.generateBricks(50, 5));
+    });
+
+    it('uses a different seeded sequence for a different seed', () => {
+      const first = new BrickManager({ width: 800, height: 600 }, createSeededRandom(42));
+      const second = new BrickManager({ width: 800, height: 600 }, createSeededRandom(43));
+
+      expect(first.generateBricks(20, 5)).not.toEqual(second.generateBricks(20, 5));
+    });
+
     it('keeps every brick above the launch zone on a short canvas', () => {
       const height = 250;
       const manager = new BrickManager({ width: 375, height });

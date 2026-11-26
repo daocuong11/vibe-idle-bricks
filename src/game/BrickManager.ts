@@ -1,6 +1,7 @@
 import type { BrickData } from '../types';
 import { calculateBrickStats } from '../types';
 import { generateId } from '../utils';
+import type { RandomSource } from './model/rng';
 import {
   BRICK_WIDTH,
   BRICK_HEIGHT,
@@ -15,9 +16,14 @@ import {
  */
 export class BrickManager {
   private size: { width: number; height: number };
+  private readonly random: RandomSource;
 
-  constructor(size: { width: number; height: number }) {
+  constructor(
+    size: { width: number; height: number },
+    random: RandomSource = { next: Math.random }
+  ) {
     this.size = { width: size.width, height: size.height };
+    this.random = random;
   }
 
   /** Updates the viewport used for layout and capacity calculations. */
@@ -65,12 +71,12 @@ export class BrickManager {
    * Creates a single brick instance.
    */
   private createBrick(x: number, y: number, baseTier: number): BrickData {
-    const tierVariation = Math.floor(Math.random() * 3) - 1;
+    const tierVariation = Math.floor(this.random.next() * 3) - 1;
     const tier = Math.max(1, baseTier + tierVariation);
     const { maxHealth, value } = calculateBrickStats(tier);
 
     return {
-      id: generateId(),
+      id: generateId(() => this.random.next()),
       x,
       y,
       width: BRICK_WIDTH,
