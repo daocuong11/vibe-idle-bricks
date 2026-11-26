@@ -95,4 +95,19 @@ describe('BrickManager', () => {
       }
     });
   });
+
+  describe('resize', () => {
+    it('recomputes capacity and layout for the new viewport', () => {
+      const manager = new BrickManager({ width: 800, height: 500 });
+      const wideCapacity = manager.getCapacity();
+
+      manager.resize(400, 300);
+
+      expect(manager.getCapacity()).toBeLessThan(wideCapacity);
+      const bricks = manager.generateBricks(1000, 1);
+      expect(bricks.length).toBeGreaterThan(0);
+      expect(bricks.every((brick) => brick.x + brick.width <= 400)).toBe(true);
+      expect(bricks.every((brick) => brick.y + brick.height <= 300)).toBe(true);
+    });
+  });
 });

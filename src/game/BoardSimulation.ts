@@ -46,6 +46,7 @@ export class BoardSimulation {
 
   resize(width: number, height: number) {
     this.ballPhysics = new BallPhysics(width, height);
+    this.brickManager.resize(width, height);
     useGameStore.getState().setCanvasSize(width, height);
   }
 

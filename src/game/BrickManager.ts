@@ -14,10 +14,15 @@ import {
  * Manages brick generation and screen-space placement.
  */
 export class BrickManager {
-  private readonly size: { width: number; height: number };
+  private size: { width: number; height: number };
 
   constructor(size: { width: number; height: number }) {
-    this.size = size;
+    this.size = { width: size.width, height: size.height };
+  }
+
+  /** Updates the viewport used for layout and capacity calculations. */
+  resize(width: number, height: number) {
+    this.size = { width, height };
   }
 
   private get offsetTop() {

@@ -63,3 +63,10 @@ base=http://localhost:4281/vibe-idle-bricks/
 spike=http://localhost:4282/vibe-idle-bricks/
 NODE_PATH="$bench_tools/node_modules" node scripts/compare-renderers.cjs "$spike" "$base" "$base" "$spike"
 ```
+
+## Follow-up applied
+
+`BrickManager` now owns a copy of its viewport and exposes `resize(width, height)`;
+`BoardSimulation.resize` updates it before the next refill. Added tests for a
+ball collision awarding a destroyed brick once, explosive area damage, refill,
+and resized capacity. The suite is now 432 tests.
