@@ -2,11 +2,10 @@
 
 ## Current Work Focus
 
-Batch 7b (**Special bricks MVP**) is implemented on
-`feat/special-bricks` (2026-11-26): gold bricks pay 5×, armored bricks have 2×
-health and take 25% damage from non-piercing hits, both spawn at 10%, persist in
-the board save, and have distinct visuals. 494 tests across 40 files; #82 closes
-on merge.
+Batch 7b (**Special bricks MVP**) is **complete** (2026-11-26, PR #120):
+gold bricks pay 5×, armored bricks have 2× health and take 25% damage from
+non-piercing hits, both spawn at 10%, persist in the board save, and have
+distinct visuals. 494 tests across 40 files; #82 is closed.
 
 Batch 7a (**Rewards and purchase QoL**) is **complete** (2026-11-26,
 PR #119): achievements now grant one-time Blueprints exactly once and show the
@@ -57,7 +56,7 @@ playtest and earlier batches.
 
 ## Recent Changes
 
-- Batch 7b: gold and armored bricks MVP. Gold pays 5× tier value; armored gets
+- Batch 7b (PR #120): gold and armored bricks MVP. Gold pays 5× tier value; armored gets
   2× health and takes 25% damage from basic/fast/sniper/click hits, while heavy,
   plasma, explosive, and explosion sources pierce. Both spawn at 10%, persist in
   the saved board, and render with distinct fills/borders. In-game help updated.
