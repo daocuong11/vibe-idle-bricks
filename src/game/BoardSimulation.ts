@@ -16,6 +16,8 @@ import {
   type RandomSource,
 } from './model';
 
+export type BoardRenderState = Pick<BoardWorld, 'balls' | 'bricks' | 'explosions'>;
+
 export interface BoardEffects {
   showFloatingText(x: number, y: number, text: string, kind: 'damage' | 'coin'): void;
   emitBrickBreakParticles(brick: BrickData, count: number): void;
@@ -27,6 +29,11 @@ export class BoardSimulation {
   private readonly effects: BoardEffects;
   private readonly brickManager: BrickManager;
   private world: BoardWorld;
+  // References last published or adopted from an external store update.
+  private publishedBalls: BoardRenderState['balls'] | null = null;
+  private publishedBricks: BoardRenderState['bricks'] | null = null;
+  private publishedExplosions: BoardRenderState['explosions'] | null = null;
+  private lastPublishedAt = 0;
 
   constructor(
     size: { width: number; height: number },
@@ -40,6 +47,7 @@ export class BoardSimulation {
     const bricks = this.brickManager.generateBricks(INITIAL_BRICKS_TO_GENERATE, store.currentTier);
     store.setBricks(bricks);
     this.world = this.createWorld();
+    this.publishBoard(true);
   }
 
   private createWorld(): BoardWorld {
@@ -61,19 +69,52 @@ export class BoardSimulation {
     const store = useGameStore.getState();
     this.world.width = store.canvasSize.width;
     this.world.height = store.canvasSize.height;
-    this.world.balls = store.balls;
-    this.world.bricks = store.bricks;
-    this.world.explosions = store.explosions;
     this.world.speedMultiplier = store.getSpeedMult();
     this.world.damageMultiplier = store.getDamageMult();
     this.world.coinMultiplier = store.getCoinMult();
-    refreshBoardWorld(this.world);
+
+    // Adopt each array independently: a ball purchase must not restore stale
+    // bricks that the live world has already damaged or refilled.
+    let adopted = false;
+    if (this.publishedBalls !== store.balls) {
+      this.world.balls = store.balls;
+      this.publishedBalls = store.balls;
+      adopted = true;
+    }
+    if (this.publishedBricks !== store.bricks) {
+      this.world.bricks = store.bricks;
+      this.publishedBricks = store.bricks;
+      adopted = true;
+    }
+    if (this.publishedExplosions !== store.explosions) {
+      this.world.explosions = store.explosions;
+      this.publishedExplosions = store.explosions;
+      adopted = true;
+    }
+    if (adopted) refreshBoardWorld(this.world);
+  }
+
+  getRenderState(): BoardRenderState {
+    return { balls: this.world.balls, bricks: this.world.bricks, explosions: this.world.explosions };
+  }
+
+  private publishBoard(force = false): void {
+    this.syncWorld();
+    const now = performance.now();
+    if (!force && now - this.lastPublishedAt < 100) return;
+
+    const board = this.getRenderState();
+    this.publishedBalls = board.balls;
+    this.publishedBricks = board.bricks;
+    this.publishedExplosions = board.explosions;
+    this.lastPublishedAt = now;
+    useGameStore.setState(board);
   }
 
   resize(width: number, height: number) {
     this.brickManager.resize(width, height);
     useGameStore.getState().setCanvasSize(width, height);
-    this.syncWorld();
+    this.publishBoard(true);
   }
 
   step(delta: number) {
@@ -81,23 +122,19 @@ export class BoardSimulation {
 
     this.syncWorld();
     const frameDelta = advanceBoardWorld(this.world, delta, performance.now());
-    useGameStore.setState({
-      balls: this.world.balls,
-      bricks: this.world.bricks,
-      explosions: this.world.explosions,
-    });
     this.applyEvents(takeBoardEvents(this.world), frameDelta);
 
     const store = useGameStore.getState();
     const refillTarget = Math.min(MIN_BRICKS_ON_SCREEN, this.brickManager.getCapacity());
-    if (store.bricks.length < refillTarget) {
-      const newBricks = this.brickManager.addBricksToFillScreen(store.bricks, store.currentTier);
+    if (this.world.bricks.length < refillTarget) {
+      const newBricks = this.brickManager.addBricksToFillScreen(this.world.bricks, store.currentTier);
       if (newBricks.length > 0) {
-        store.setBricks([...store.bricks, ...newBricks]);
+        this.world.bricks = [...this.world.bricks, ...newBricks];
       }
     }
 
-    this.syncWorld();
+    refreshBoardWorld(this.world);
+    this.publishBoard();
     return frameDelta;
   }
 
@@ -134,12 +171,10 @@ export class BoardSimulation {
       }
 
       if (event.type === 'explosion') {
-        useGameStore.setState((state) => ({
-          explosions: [
-            ...state.explosions,
-            { x: event.x, y: event.y, radius: event.radius, life: 300 - frameDelta, maxLife: 300 },
-          ],
-        }));
+        this.world.explosions = [
+          ...this.world.explosions,
+          { x: event.x, y: event.y, radius: event.radius, life: 300 - frameDelta, maxLife: 300 },
+        ];
       } else {
         this.effects.shakeExplosion();
       }
@@ -152,10 +187,10 @@ export class BoardSimulation {
 
   handleBrickClick(x: number, y: number) {
     this.syncWorld();
-    if (!applyBoardClickDamage(this.world, x, y)) return;
-
-    useGameStore.setState({ bricks: this.world.bricks });
-    this.applyEvents(takeBoardEvents(this.world));
-    refreshBoardWorld(this.world);
+    if (applyBoardClickDamage(this.world, x, y)) {
+      this.applyEvents(takeBoardEvents(this.world));
+      refreshBoardWorld(this.world);
+    }
+    this.publishBoard(true);
   }
 }
