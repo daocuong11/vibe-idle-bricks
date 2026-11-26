@@ -48,7 +48,7 @@ Issues: [#100], [#76], [#101].
 - [x] Replace the 0.05 × 0.5 versus 0.1 mismatch with one model: a measured 60 s rolling rate for HUD, ETA, and offline. Revisit with simulation in Batch 5.
 - [x] Tests: 5 minutes backgrounded, close/reopen, live:offline ratio.
 
-Implemented 2026-11-26. Design:
+Merged in #113 on 2026-11-26; #100/#76/#101 closed. Design:
 `memory/designs/DESIGN010-lifecycle-and-measured-income.md`.
 
 ## Batch 3 — Keyboard and audio quick wins (0.5 day)
