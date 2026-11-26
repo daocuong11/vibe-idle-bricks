@@ -131,13 +131,16 @@ export class GameEffects {
 
     for (const explosion of explosions) {
       const progress = 1 - explosion.life / explosion.maxLife;
-      const radius = explosion.radius * (0.5 + progress * 0.5);
+      const radius = explosion.radius * (0.35 + progress * 0.65);
       const alpha = 1 - progress;
 
-      this.explosionGraphics.fillStyle(0xffc832, alpha);
-      this.explosionGraphics.fillCircle(explosion.x, explosion.y, radius * 0.5);
-      this.explosionGraphics.fillStyle(0xff6432, alpha * 0.5);
-      this.explosionGraphics.fillCircle(explosion.x, explosion.y, radius);
+      // A faint core plus a bright rim keeps the bricks underneath readable.
+      this.explosionGraphics.fillStyle(0xffa94d, alpha * 0.08);
+      this.explosionGraphics.fillCircle(explosion.x, explosion.y, radius * 0.75);
+      this.explosionGraphics.lineStyle(3, 0xffd166, alpha * 0.85);
+      this.explosionGraphics.strokeCircle(explosion.x, explosion.y, radius);
+      this.explosionGraphics.lineStyle(1, 0xffffff, alpha * 0.3);
+      this.explosionGraphics.strokeCircle(explosion.x, explosion.y, radius * 0.7);
     }
   }
 

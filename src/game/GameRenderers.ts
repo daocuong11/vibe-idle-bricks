@@ -87,17 +87,89 @@ export class BallRenderer extends BaseRenderer<BallData> {
         graphics.strokePath();
       }
 
-      graphics.fillStyle(color, 0.3);
-      graphics.fillCircle(ball.x, ball.y, 16);
-
-      graphics.fillStyle(color, 1);
-      graphics.fillCircle(ball.x, ball.y, 8);
-
-      graphics.fillStyle(0xffffff, 0.5);
-      graphics.fillCircle(ball.x - 2, ball.y - 2, 3);
+      this.drawCore(graphics, ball, color);
     }
 
     this.pruneUnusedGraphics();
+  }
+
+  /**
+   * Draws a silhouette that stays identifiable in monochrome: circles for
+   * basic, a ringed core for fast, a hexagon for heavy, a star for plasma,
+   * spiked edges for explosive, and a crosshair for sniper.
+   */
+  private drawCore(graphics: Phaser.GameObjects.Graphics, ball: BallData, color: number) {
+    const { x, y } = ball;
+
+    graphics.fillStyle(color, 0.3);
+    graphics.fillCircle(x, y, 16);
+
+    graphics.fillStyle(color, 1);
+
+    switch (ball.type) {
+      case 'heavy': {
+        const points = Array.from({ length: 6 }, (_, index) => {
+          const angle = -Math.PI / 2 + (index * Math.PI) / 3;
+          return { x: x + Math.cos(angle) * 10, y: y + Math.sin(angle) * 10 };
+        });
+        graphics.fillPoints(points as unknown as Phaser.Math.Vector2[], true);
+        graphics.fillStyle(0xffffff, 0.45);
+        graphics.fillCircle(x - 2, y - 2, 2.5);
+        return;
+      }
+
+      case 'plasma': {
+        const points = Array.from({ length: 8 }, (_, index) => {
+          const angle = -Math.PI / 2 + (index * Math.PI) / 4;
+          const radius = index % 2 === 0 ? 12 : 5;
+          return { x: x + Math.cos(angle) * radius, y: y + Math.sin(angle) * radius };
+        });
+        graphics.fillPoints(points as unknown as Phaser.Math.Vector2[], true);
+        graphics.fillStyle(0xffffff, 0.7);
+        graphics.fillCircle(x, y, 2.5);
+        return;
+      }
+
+      case 'explosive': {
+        graphics.fillCircle(x, y, 8);
+        const spike = (ax: number, ay: number, bx: number, by: number, cx: number, cy: number) => {
+          graphics.fillTriangle(x + ax, y + ay, x + bx, y + by, x + cx, y + cy);
+        };
+        spike(0, -14, -5, -6, 5, -6);
+        spike(0, 14, -5, 6, 5, 6);
+        spike(-14, 0, -6, -5, -6, 5);
+        spike(14, 0, 6, -5, 6, 5);
+        graphics.fillStyle(0xffffff, 0.45);
+        graphics.fillCircle(x - 2, y - 2, 2.5);
+        return;
+      }
+
+      case 'sniper': {
+        graphics.fillCircle(x, y, 5);
+        graphics.lineStyle(2, color, 0.9);
+        graphics.strokeCircle(x, y, 10);
+        graphics.lineStyle(1, 0xffffff, 0.55);
+        graphics.lineBetween(x - 14, y, x - 7, y);
+        graphics.lineBetween(x + 7, y, x + 14, y);
+        graphics.lineBetween(x, y - 14, x, y - 7);
+        graphics.lineBetween(x, y + 7, x, y + 14);
+        return;
+      }
+
+      case 'fast': {
+        graphics.fillCircle(x, y, 7);
+        graphics.lineStyle(1.5, color, 0.8);
+        graphics.strokeCircle(x, y, 11);
+        graphics.fillStyle(0xffffff, 0.45);
+        graphics.fillCircle(x - 2, y - 2, 2.5);
+        return;
+      }
+
+      default:
+        graphics.fillCircle(x, y, 8);
+        graphics.fillStyle(0xffffff, 0.5);
+        graphics.fillCircle(x - 2, y - 2, 3);
+    }
   }
 
   private getBallColor(ballType: BallType) {

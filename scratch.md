@@ -66,11 +66,11 @@ Both halves complete: keyboard #112 (consolidated from #109/#110), audio #114.
 Issues: [#104], [#105], [#56], [#60], [#61].
 
 - [ ] Spike a Canvas2D renderer at DPR 2; compare 50-ball frame time, bundle size, sharpness, and code size.
-- [ ] Either make the `phaser-engine` chunk real (`advancedChunks` / `codeSplitting`) or document one lazy chunk and fix the `vite.config.ts` comment.
+- [x] Make the `phaser-engine` chunk real with `codeSplitting` (game engine 62 kB, Phaser 1.37 MB, no size warning).
 - [ ] Decide: adopt Canvas2D, keep Phaser, or revisit. Record the decision on [#105].
-- [ ] Then implement [#56] and fold [#60]/[#61] into the chosen renderer.
+- [x] #60 explosion rims and #61 ball silhouettes in the current Phaser renderer; #56 remains blocked on Phaser 4.
 
-Why now: [#56] is blocked on Phaser 4; all visual leaves depend on this decision.
+Batch 4a implemented 2026-11-26; the Canvas2D spike/decision is the remaining work.
 
 ## Batch 5 — Simulation core (1–2 weeks)
 
