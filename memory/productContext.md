@@ -19,19 +19,19 @@ Idle Bricks combines the classic arcade feel of breakout with the addictive prog
 2. **Bricks Break**: When hit, bricks take damage based on ball type and upgrades
 3. **Coins Earned**: Destroyed bricks award coins based on tier and multipliers
 4. **Upgrade/Buy**: Players spend coins on new balls or permanent upgrades
-5. **Tier Up**: Breaking 100 bricks increases brick tier (harder but more valuable)
-6. **Prestige**: After 10,000 bricks, players can reset for permanent +25% coin bonus
+5. **Tier Up**: Every 100 bricks increases the brick tier (max 20; harder but more valuable)
+6. **Prestige**: After 10,000 bricks, players can reset for a permanent ×1.75 damage and coin multiplier per level; upgrades are kept
 
 ### Ball Types & Strategy
 
 | Ball | Cost | Special |
 |------|------|---------|
 | Basic | 10 | Standard starter ball |
-| Fast | 50 | 2x speed for more hits |
+| Fast | 30 | 2x speed for more hits |
 | Heavy | 100 | 3x damage, slower |
 | Plasma | 500 | Pierces through bricks |
 | Explosive | 1000 | AOE damage radius |
-| Sniper | 2500 | Targets weakest bricks |
+| Sniper | 3500 | Targets weakest bricks |
 
 ## User Experience Goals
 

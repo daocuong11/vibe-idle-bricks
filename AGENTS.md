@@ -7,7 +7,7 @@ This document provides instructions for AI coding agents working on this project
 ## Important
 Before finishing after making code changes, ensure the relevant validation checks pass for the scope of the change:
 
-- All applicable tests pass (`npm run test` or focused test commands)
+- All applicable tests pass (`npm run test:run` or focused test commands)
 - TypeScript compiles without errors (`npm run build` or `npm run typecheck`)
 - Linting passes (`npm run lint`)
 
@@ -16,7 +16,7 @@ Before finishing after making code changes, ensure the relevant validation check
 **Idle Bricks** is an idle/incremental breakout-style game built with:
 
 - **React 19** — UI layer
-- **Phaser 3** — Game engine (physics, rendering)
+- **Phaser 4** — Game engine (physics, rendering)
 - **Zustand** — State management
 - **TypeScript** — Type safety
 - **Vite** — Build tooling
@@ -44,7 +44,7 @@ The main source files are:
 
 - `src/store/gameStore.ts` — all game state and actions
 - `src/game/GameScene.ts` — Phaser physics, rendering, collisions
-- `src/types/game.ts` — type definitions, `BALL_TYPES`, constants
+- `src/types/game.ts` — type definitions, `BALL_TYPES`, constants (authoritative balance values)
 - `src/utils/helpers.ts` — pure utility functions
 - `src/components/` — React UI components
 
@@ -82,6 +82,8 @@ npm run dev      # Start dev server
 npm run build    # TypeScript check + production build
 npm run lint     # ESLint
 npm run typecheck # Run TypeScript type checking without emit
+npm run test:run # Run the Vitest suite once (CI-safe)
+npm test         # Run Vitest in watch mode
 npm run preview  # Preview production build
 ```
 
@@ -156,12 +158,13 @@ The most relevant agents are:
 
 ## Testing
 
-- **Vitest** for unit testing (`npm run test`)
+- **Vitest** for unit testing (`npm run test:run` for CI, `npm test` for watch mode)
 - Tests located in `tests/` directory
 - Manual testing via `npm run dev`
 - Validate TypeScript with `npm run build`
 - Type-check only via `npm run typecheck`
 - Lint with `npm run lint`
+- CI (`.github/workflows/ci.yml`) runs lint, typecheck, `test:run`, and build on every PR and push to `main`
 
 ## Auto-Save
 

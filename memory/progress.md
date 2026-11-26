@@ -20,7 +20,7 @@
 
 - Coin earning based on brick value
 - Tier progression (every 100 bricks up to tier 20)
-- Prestige system with scaling thresholds (10k → 20k → 40k)
+- Prestige system with a fixed 10,000-brick goal and a ×1.75 damage and coin multiplier per level; upgrades are kept across prestiges
 - Speed, damage, and coin multiplier upgrades
 
 ### Persistence ✅
@@ -67,15 +67,16 @@
 **Version**: 1.0.0  
 **State**: Playable and functional
 
-### Latest Toolchain (post TASK009)
+### Latest Toolchain (2026-11-26)
 
-- React 19.2.7 / React-DOM 19.2.7
-- Phaser 4.1.0 (lazy-loaded)
-- Vite 8.0.16 + Vitest 4.1.8
+- React 19.3.0 / React-DOM 19.3.0
+- Phaser 4.2.1 (lazy-loaded)
+- Vite 8.3.3 + Vitest 5.0.3
 - TypeScript 6.0.3 (strict, `erasableSyntaxOnly`)
-- ESLint 10.4.1 + typescript-eslint 8.61.0
-- jsdom 29.1.1
-- **Test count**: 304 passing across 24 files (was 268 before PR3)
+- ESLint 10.12.0 + typescript-eslint 8.71.1
+- jsdom 30.1.2
+- **Test count**: 365 passing across 31 files
+- **CI**: `.github/workflows/ci.yml` runs lint, typecheck, `test:run`, and build on PRs and `main`
 
 ## Known Issues
 

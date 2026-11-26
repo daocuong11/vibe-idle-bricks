@@ -2,14 +2,13 @@
 
 ## Current Work Focus
 
-Issue #68 (branch `ux/income-stats`) is **in flight**: the coins stat shows a
-nominal `≈ n/s` estimate, balls show `n / 50`, upgrade rows preview the Max
-purchase (`Max +11 → Lv.11 · 962 coins`) and disabled rows say how many coins
-and roughly how long until affordable. #56 (HiDPI) is blocked on Phaser 4: no
-game-level `resolution` and the manual backing-store workaround is broken
-upstream.
+Batch 0 from `scratch.md` is **complete** (2026-11-26): PR CI, refreshed
+README/AGENTS/memory constants, `coverage/` untracked, and #51/#81 closed.
+Next is Batch 1, save integrity (#99).
 
-TASK009 (Suggestion Set) is **complete** and merged to `main` (merge `20505e0`).
+Current toolchain: React 19.3.0, Phaser 4.2.1, Vite 8.3.3, Vitest 5.0.3,
+TypeScript 6.0.3. The entries below are historical context from the November
+playtest and earlier batches.
 
 ## Recent Changes
 

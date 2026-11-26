@@ -14,11 +14,13 @@ Working plan, last updated 2026-11-26. Issue references point at GitHub. Tick bo
 
 Issues: [#107], [#108]; close [#51]; verify [#81].
 
-- [ ] Add `.github/workflows/ci.yml` on pull_request and push to main: npm ci, lint, typecheck, test:run, build.
-- [ ] Update README, AGENTS, and memory constants; point at `src/types/game.ts` and `package.json` as the source of truth.
-- [ ] Add `coverage/` to `.gitignore` and untrack it (`git rm -r --cached coverage`).
-- [ ] Close [#51] (every child is closed). Verify [#81] (text pooling and shared effect objects already shipped); close or rescope.
-- [ ] Keep [#28] closed; [#104] tracks the chunk regression.
+- [x] Add `.github/workflows/ci.yml` on pull_request and push to main: npm ci, lint, typecheck, test:run, build.
+- [x] Update README, AGENTS, and memory constants; point at `src/types/game.ts` and `package.json` as the source of truth.
+- [x] Add `coverage/` to `.gitignore` and untrack it (`git rm -r --cached coverage`).
+- [x] Close [#51] (every child is closed). Verify [#81] (text pooling and shared effect objects already shipped); close or rescope.
+- [x] Keep [#28] closed; [#104] tracks the chunk regression.
+
+Done 2026-11-26; documentation and CI only, no gameplay code changed.
 
 Why first: protects every later batch and removes misleading constants before balance work.
 

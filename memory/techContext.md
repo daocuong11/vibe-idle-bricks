@@ -8,16 +8,16 @@
 |------------|---------|---------|
 | React | 19.3.0 | UI components and state presentation |
 | TypeScript | 6.0.3 | Type safety and developer experience |
-| Vite | 8.3.1 | Build tool and dev server |
+| Vite | 8.3.3 | Build tool and dev server |
 | Phaser | 4.2.1 | 2D game engine for canvas rendering |
 | Zustand | 5.0.15 | State management with subscription support |
 | break_infinity.js | 2.2.0 | Arbitrary precision numbers for idle game math |
 
 ### Development Tools
 
-- ESLint 10.11.0 with TypeScript and React plugins
-- Vitest 5.0.2 for unit testing
-- Node.js (requires v22.22.2+, or v24.15.0+, or v26+)
+- ESLint 10.12.0 with TypeScript and React plugins
+- Vitest 5.0.3 for unit testing
+- Node.js 20.19+ or 22.12+ (CI uses Node 24 LTS)
 - TypeScript is held at 6.x because `typescript-eslint` does not yet support TypeScript 7
 
 ## Project Structure
@@ -50,6 +50,9 @@ npm install
 # Start development server
 npm run dev
 
+# Run the test suite once (CI-safe)
+npm run test:run
+
 # Build for production
 npm run build
 
@@ -60,7 +63,7 @@ npm run preview
 ## Technical Constraints
 
 1. **Browser Compatibility**: Must work in modern browsers (Chrome, Firefox, Safari, Edge)
-2. **Performance**: Maintain 60fps with 50+ bricks and 10+ balls
+2. **Performance**: Maintain 60fps with roughly 200 bricks and 50 balls
 3. **Number Precision**: Use Decimal for all game values to support arbitrarily large numbers
 4. **State Sync**: Zustand store is source of truth; Phaser reads from it each frame
 5. **localStorage**: Save data persists in browser storage (no backend)
@@ -78,3 +81,4 @@ npm run preview
 - `tsconfig.app.json` - Application TypeScript settings
 - `tsconfig.node.json` - Node/build tool TypeScript settings
 - `eslint.config.js` - ESLint rules for code quality
+- `.github/workflows/ci.yml` - PR and main-branch validation (lint, typecheck, test, build)

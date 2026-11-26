@@ -4,7 +4,7 @@ An idle/incremental breakout-style game where balls autonomously smash through b
 
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react)
 ![Phaser](https://img.shields.io/badge/Phaser-4-blue)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript)
+![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6?logo=typescript)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 ## 📖 Table of Contents
@@ -22,10 +22,10 @@ An idle/incremental breakout-style game where balls autonomously smash through b
 
 - **Autonomous gameplay** — Runs itself while you strategize upgrades.
 - **6 unique ball types** — Each with distinct physics, stats, and abilities.
-- **10 brick tiers** — Progressive difficulty with scaling rewards and colors.
-- **Prestige system** — Reset progress for permanent coin multipliers (+25% per level).
+- **20 brick tiers** — Progressive difficulty with scaling rewards and colors; tiers rise every 100 bricks.
+- **Prestige system** — Reset the run for a permanent ×1.75 damage and coin multiplier per level (upgrades are kept; max level 100).
 - **Auto-save** — Progress is saved to local storage every 30 seconds.
-- **Offline Earnings** — Earn coins based on your production rate while the game is closed.
+- **Offline earnings** — Earn coins based on your production rate while the game is closed, capped at 24 hours.
 - **Large number support** — Handles arbitrarily large values using `break_infinity.js`.
 
 ## 🎮 How to Play
@@ -33,25 +33,25 @@ An idle/incremental breakout-style game where balls autonomously smash through b
 1. **Watch balls bounce** — They automatically break bricks and earn coins.
 2. **Buy upgrades** — Increase global speed, damage, and coin multipliers from the Shop.
 3. **Unlock new balls** — Purchase specialized balls like Plasma (piercing) or Explosive (AoE).
-4. **Tier up** — Breaking bricks increases the brick tier (harder but more valuable).
-5. **Prestige** — Once you reach a brick threshold (e.g., 10,000), you can prestige to reset for a permanent bonus.
+4. **Tier up** — Every 100 bricks broken raises the tier (max 20); higher tiers are tougher but pay more.
+5. **Prestige** — Break 10,000 bricks in a run to reset coins, balls, and tier for a permanent ×1.75 damage and coin multiplier. Upgrades are kept.
 
 ## 🎱 Ball Types
 
 | Ball | Cost | Special Ability |
 |------|------|-----------------|
 | ⚪ **Basic** | 10 | Standard starter ball. Balanced stats. |
-| 🔵 **Fast** | 50 | 2× speed for more frequent hits. |
+| 🔵 **Fast** | 30 | 2× speed for more frequent hits. |
 | 🟠 **Heavy** | 100 | 3× damage, but moves slower. Good for high-health bricks. |
 | 🟣 **Plasma** | 500 | Pierces through bricks, damaging multiple in a line. |
 | 🔴 **Explosive** | 1,000 | Deals area-of-effect damage to nearby bricks on impact. |
-| 🟢 **Sniper** | 2,500 | Actively steers towards the weakest brick on screen. |
+| 🟢 **Sniper** | 3,500 | Actively steers towards the weakest brick on screen. |
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
-- Node.js (v18+ recommended)
+- Node.js 20.19+ or 22.12+ (Node 24 LTS recommended; CI uses 24)
 - npm or yarn
 
 ### Installation
@@ -79,7 +79,7 @@ An idle/incremental breakout-style game where balls autonomously smash through b
 The application uses a layered architecture separating UI, State, and Game Logic:
 
 - **React 19** handles the UI (Shop, Stats, Footer).
-- **Phaser 3** handles the game loop, physics, collisions, and rendering in a canvas.
+- **Phaser 4** handles the game loop, physics, collisions, and rendering in a canvas.
 - **Zustand** acts as the single source of truth for game state (coins, balls, bricks).
 
 ### Data Flow
@@ -91,6 +91,10 @@ The application uses a layered architecture separating UI, State, and Game Logic
 ### Numeric Precision
 
 All gameplay values (health, coins, damage) use `break_infinity.js` `Decimal` objects to support incremental game scale numbers (e.g., 1e50).
+
+### Balance Source of Truth
+
+Ball stats, costs, tier formulas, and the prestige multiplier live in [`src/types/game.ts`](src/types/game.ts). This README summarizes them; the code is authoritative.
 
 ## 📁 Project Structure
 
@@ -118,7 +122,9 @@ src/
 - `npm run build`: Build for production.
 - `npm run lint`: Run ESLint.
 - `npm run typecheck`: Run TypeScript compiler check.
-- `npm test`: Run Vitest unit tests.
+- `npm run test:run`: Run the Vitest suite once (used by CI).
+- `npm test`: Run Vitest in watch mode.
+- `npm run test:coverage`: Run tests with a coverage report.
 
 ### Documentation
 

@@ -9,9 +9,9 @@ Idle Bricks is an idle/incremental breakout-style game where players automate br
 1. **Autonomous Gameplay**: Balls continuously bounce and break bricks without player input
 2. **Progressive Upgrades**: Speed, damage, and coin multiplier upgrades
 3. **Multiple Ball Types**: 6 ball types with unique properties (basic, fast, heavy, plasma, explosive, sniper)
-4. **Prestige System**: Reset progress for permanent bonuses after breaking 10,000 bricks
+4. **Prestige System**: Reset progress for permanent damage and coin multipliers (×1.75 per level) after breaking 10,000 bricks
 5. **Persistent Progress**: Auto-save every 30 seconds + offline earnings
-6. **Tier Progression**: Bricks scale in health and value as the player progresses (tiers 1-10)
+6. **Tier Progression**: Bricks scale in health and value as the player progresses (tiers 1-20)
 
 ## Goals
 
@@ -24,7 +24,7 @@ Idle Bricks is an idle/incremental breakout-style game where players automate br
 
 - Web browser (desktop and mobile compatible)
 - Single-page application with React UI
-- Phaser 3 for game canvas rendering
+- Phaser 4 for game canvas rendering
 
 ## Success Criteria
 

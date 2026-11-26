@@ -42,7 +42,7 @@ useGameStore.setState({ balls: updatedBalls });
 
 ### 2. Immutable State Updates
 
-State is never mutated directly. All updates create new objects/arrays.
+Most store updates create new objects/arrays. The exception is the ball simulation: `GameScene` mutates ball objects in place before republishing the array, which weakens identity-based memoization (tracked in #103).
 
 ```typescript
 set({
@@ -130,10 +130,13 @@ ballCollidesWithBrick(ball, brick) {
 
 ## Tier System
 
+Health is `3 * (1 + 0.25 * (tier - 1))`; value is `floor(tier^1.6)`. Tier rises every 100 bricks broken and caps at 20.
+
 | Tier | Health | Value | Color |
 |------|--------|-------|-------|
 | 1 | 3 | 1 | Green |
-| 2 | 6 | 2 | Blue |
-| 3 | 9 | 3 | Yellow |
-| ... | tier × 3 | tier | See getTierColor() |
-| 10 | 30 | 10 | Amber |
+| 2 | 3.75 | 3 | Blue |
+| 3 | 4.5 | 5 | Yellow |
+| 5 | 6 | 13 | Red |
+| 10 | 9.75 | 39 | Amber |
+| 20 | 17.25 | 120 | Amber (max) |
