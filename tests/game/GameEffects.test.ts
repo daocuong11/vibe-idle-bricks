@@ -117,6 +117,33 @@ describe('GameEffects explosions', () => {
     expect(graphics.calls.filter((call) => call === 'strokeCircle')).toHaveLength(2)
     expect(graphics.calls.filter((call) => call === 'lineStyle')).toHaveLength(2)
   })
+  it('reuses a single shared graphics object for explosions across frames', () => {
+    let graphicsCount = 0
+    const graphics = new RecordingGraphics()
+    const scene = {
+      textures: { exists: () => true },
+      add: {
+        text: () => createText(),
+        graphics: () => {
+          graphicsCount++
+          return graphics
+        },
+        particles: () => ({
+          setPosition: () => undefined,
+          setParticleTint: () => undefined,
+          explode: () => undefined,
+          destroy: () => undefined,
+        }),
+      },
+    } as unknown as ConstructorParameters<typeof GameEffects>[0]
+    const effects = new GameEffects(scene)
+    effects.initialize()
+
+    effects.renderExplosions([{ x: 50, y: 50, radius: 70, life: 200, maxLife: 300 }])
+    effects.renderExplosions([{ x: 60, y: 60, radius: 70, life: 100, maxLife: 300 }])
+
+    expect(graphicsCount).toBe(1)
+  })
 })
 
 describe('GameEffects floating text', () => {
