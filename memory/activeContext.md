@@ -9,21 +9,31 @@ Batch 1 (save integrity, #99) is **complete** (2026-11-26, PR #111):
 versioned local/export saves, total numeric validation, future-version
 rejection, storage-failure toasts, and an unversioned-save migration.
 
-The keyboard half of Batch 3 (#102) is **complete** (2026-11-26, PR #112,
-consolidated from #109/#110); the audio half (#79) remains.
+The keyboard and audio halves of Batch 3 (#102/#79) are **implemented**.
+Keyboard shipped in PR #112 (consolidated from #109/#110); audio is complete on
+`fix/audio-gesture-throttle` and in review.
 
 Batch 2 (#100/#76/#101) is **complete** (2026-11-26, PR #113): pagehide and
 hidden-tab saves, 60-second-plus background catch-up through the shared
 `applyIdleEarnings` action with a 24-hour cap, and one measured 60-second coin
 rate (nominal × 0.1 fallback) for the HUD, ETAs, and 50% offline earnings.
 Design: `memory/designs/DESIGN010-lifecycle-and-measured-income.md`. Next is
-the audio half of Batch 3 (#79) or the rendering decision in Batch 4.
+the rendering decision in Batch 4.
 
 Current toolchain: React 19.3.0, Phaser 4.2.1, Vite 8.3.3, Vitest 5.0.3,
 TypeScript 6.0.3. The entries below are historical context from the November
 playtest and earlier batches.
 
 ## Recent Changes
+
+- Batch 3 audio (#79), implemented on `fix/audio-gesture-throttle`: the app's
+  one-shot capture listeners call `AudioModule.unlock()` on the first
+  pointerdown/keydown/touchstart and clean up on unlock or unmount. Context
+  creation is gesture-gated; suspended contexts resume without duplicate
+  in-flight resumes. High-frequency ballBounce/brickBreak/coin cues have 30 ms
+  cooldowns, and a timestamped window caps active sound voices at eight for
+  600 ms (covering the longest existing cue). Muting and jsdom's no-Web-Audio
+  no-op are preserved. Validation: lint, typecheck, 418 tests, and build pass.
 
 - Batch 2 lifecycle/income (#100/#76/#101): save on pagehide and hidden
   tabs, grant absences of at least 60 seconds through a shared capped idle
@@ -202,4 +212,4 @@ TASK009 PR3 (mobile + achievements):
 - Mobile touch events not explicitly handled (relies on Phaser defaults; PR3 will tighten)
 - Save hydration must normalize out-of-range values; purchase/UI caps alone are not enough to prevent oversized loaded state
 - Settings are persisted under `idleBricksSettings` (separate from the game save) so `reset()` does not wipe user preferences
-- Audio module is a `globalThis` singleton so HMR / dynamic imports / test module duplication share state
+- Audio module is a `globalThis` singleton so HMR / dynamic imports / test module duplication share state; only `unlock()` may create its AudioContext, from a real user gesture
