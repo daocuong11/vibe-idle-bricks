@@ -2,8 +2,6 @@ export const EXPLOSION_DAMAGE_MULTIPLIER = 0.5;
 export const EXPLOSION_SCREEN_SHAKE_DURATION = 100;
 export const EXPLOSION_SCREEN_SHAKE_INTENSITY = 0.005;
 
-export const OFFLINE_EARNINGS_CONSTANT = 0.05;
-
 export const FIXED_STEP = 8;
 /** A stalled frame simulates at most this many steps; older time is dropped. */
 export const MAX_CATCH_UP_STEPS = 5;

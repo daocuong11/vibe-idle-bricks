@@ -43,12 +43,13 @@ Why before [#86]: lifetime stats add new persisted fields.
 
 Issues: [#100], [#76], [#101].
 
-- [ ] Save on `pagehide` and on `visibilitychange` when hidden.
-- [ ] On visible, grant elapsed-time income through the offline path; keep the 24 h cap; do not double-count with `load()`.
-- [ ] Replace the 0.05 × 0.5 versus 0.1 mismatch with one model: a measured 60 s rolling rate for HUD, ETA, and offline. Revisit with simulation in Batch 5.
-- [ ] Tests: 5 minutes backgrounded, close/reopen, live:offline ratio.
+- [x] Save on `pagehide` and on `visibilitychange` when hidden.
+- [x] On visible, grant elapsed-time income through the offline path; keep the 24 h cap; do not double-count with `load()`.
+- [x] Replace the 0.05 × 0.5 versus 0.1 mismatch with one model: a measured 60 s rolling rate for HUD, ETA, and offline. Revisit with simulation in Batch 5.
+- [x] Tests: 5 minutes backgrounded, close/reopen, live:offline ratio.
 
-Note: [#101] is shippable now with a measured EMA; do not wait for [#103].
+Implemented 2026-11-26. Design:
+`memory/designs/DESIGN010-lifecycle-and-measured-income.md`.
 
 ## Batch 3 — Keyboard and audio quick wins (0.5 day)
 

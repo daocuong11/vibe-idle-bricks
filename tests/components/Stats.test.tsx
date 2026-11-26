@@ -4,9 +4,11 @@ import Decimal from 'break_infinity.js'
 import { Stats } from '../../src/components/Stats'
 import { useGameStore } from '../../src/store/gameStore'
 import { BALL_TYPES } from '../../src/types/game'
+import { recordIncome, resetIncomeTracking } from '../../src/store/earnings'
 
 // Reset store before each test
 const resetStore = () => {
+  resetIncomeTracking()
   useGameStore.setState({
     coins: new Decimal(0),
     bricksBroken: new Decimal(0),
@@ -93,6 +95,21 @@ describe('Stats', () => {
 
     expect(screen.getByText('≈ 0.1/s')).toBeInTheDocument()
     expect(screen.getByText('1 / 50')).toBeInTheDocument()
+  })
+
+  it('should switch from fallback to measured income when gameplay credits coins', () => {
+    useGameStore.setState({
+      balls: [{ id: '1', type: 'basic', x: 0, y: 0, dx: 1, dy: -1 }],
+    })
+    render(<Stats />)
+    expect(screen.getByText('≈ 0.1/s')).toBeInTheDocument()
+
+    act(() => {
+      recordIncome(new Decimal(60))
+      useGameStore.getState().addCoins(new Decimal(60))
+    })
+
+    expect(screen.getByText('≈ 2.0/s')).toBeInTheDocument()
   })
 
   it('should display next prestige threshold', () => {

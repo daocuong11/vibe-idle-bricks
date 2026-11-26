@@ -2,6 +2,12 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import Decimal from 'break_infinity.js'
 import { planMaxUpgrade, useGameStore } from '../../src/store/gameStore'
 import { BALL_TYPES, PRESTIGE_THRESHOLD, MAX_TIER, MAX_BALLS, MAX_SPEED_UPGRADE } from '../../src/types/game'
+import {
+  getMeasuredIncomePerSecond,
+  recordIncome,
+  resetIncomeTracking,
+  MAX_OFFLINE_SECONDS,
+} from '../../src/store/earnings'
 
 // Mock localStorage
 const createLocalStorageMock = () => {
@@ -24,6 +30,7 @@ Object.defineProperty(window, 'localStorage', {
 
 // Helper to reset store state
 const resetStore = () => {
+  resetIncomeTracking()
   useGameStore.setState({
     coins: new Decimal(0),
     bricksBroken: new Decimal(0),
@@ -110,6 +117,100 @@ describe('gameStore', () => {
       const store = useGameStore.getState()
       store.addCoins(new Decimal('1e50'))
       expect(useGameStore.getState().coins.gte('1e50')).toBe(true)
+    })
+  })
+
+  describe('live income and idle earnings', () => {
+    it('falls back to calibrated nominal income before gameplay credits exist', () => {
+      useGameStore.setState({
+        balls: [{ id: '1', type: 'basic', x: 0, y: 0, dx: 1, dy: -1 }],
+      })
+
+      expect(useGameStore.getState().getIncomePerSecond().eq(0.1)).toBe(true)
+    })
+
+    it('prefers actual coin credits once measured', () => {
+      useGameStore.setState({
+        balls: [{ id: '1', type: 'basic', x: 0, y: 0, dx: 1, dy: -1 }],
+      })
+      recordIncome(new Decimal(6))
+      useGameStore.getState().addCoins(new Decimal(60))
+
+      expect(getMeasuredIncomePerSecond().toNumber()).toBeCloseTo(1.1, 10)
+      expect(useGameStore.getState().getIncomePerSecond().toNumber()).toBeCloseTo(1.1, 10)
+    })
+
+    it('records the prestige-adjusted amount credited by gameplay', () => {
+      useGameStore.setState({ prestigeLevel: 1 })
+      recordIncome(new Decimal(6))
+      useGameStore.getState().addCoins(new Decimal(10))
+
+      expect(getMeasuredIncomePerSecond().eq(new Decimal(23.5).div(60))).toBe(true)
+    })
+
+    it('applies half the live rate, a 24-hour cap, and updates the save timestamp', () => {
+      useGameStore.setState({
+        coins: new Decimal(10),
+        balls: [{ id: '1', type: 'basic', x: 0, y: 0, dx: 1, dy: -1 }],
+      })
+      const before = Date.now()
+
+      useGameStore.getState().applyIdleEarnings(MAX_OFFLINE_SECONDS * 2)
+
+      const state = useGameStore.getState()
+      expect(state.coins.eq(4330)).toBe(true)
+      expect(state.pendingOfflineMessage).toContain('24h (max)')
+      expect(state.timestamp).toBeGreaterThanOrEqual(before)
+      // Idle grants are not gameplay credits and must not inflate the live tracker.
+      expect(getMeasuredIncomePerSecond().eq(0)).toBe(true)
+    })
+
+    it('uses an explicitly supplied live rate for idle earnings', () => {
+      useGameStore.setState({ coins: new Decimal(0) })
+
+      useGameStore.getState().applyIdleEarnings(3600, new Decimal(2))
+
+      expect(useGameStore.getState().coins.eq(3600)).toBe(true)
+    })
+
+    it('does not apply prestige bonuses twice to idle earnings', () => {
+      useGameStore.setState({
+        prestigeLevel: 1,
+        balls: [{ id: '1', type: 'basic', x: 0, y: 0, dx: 1, dy: -1 }],
+      })
+
+      useGameStore.getState().applyIdleEarnings(3600)
+
+      expect(useGameStore.getState().coins.eq(472)).toBe(true)
+    })
+
+    it('clears measured income on reset and load', () => {
+      recordIncome(new Decimal(60))
+      expect(getMeasuredIncomePerSecond().eq(1)).toBe(true)
+
+      useGameStore.getState().reset()
+      expect(getMeasuredIncomePerSecond().eq(0)).toBe(true)
+
+      recordIncome(new Decimal(60))
+      useGameStore.getState().load()
+      expect(getMeasuredIncomePerSecond().eq(0)).toBe(true)
+    })
+
+    it('clears measured income after a successful import and prestige', () => {
+      const importedSave = JSON.stringify({
+        coins: '100',
+        prestigeLevel: 0,
+        balls: ['basic'],
+        timestamp: Date.now(),
+      })
+      recordIncome(new Decimal(60))
+      expect(useGameStore.getState().importSave(importedSave)).toBe(true)
+      expect(getMeasuredIncomePerSecond().eq(0)).toBe(true)
+
+      recordIncome(new Decimal(60))
+      useGameStore.setState({ bricksBroken: new Decimal(PRESTIGE_THRESHOLD) })
+      expect(useGameStore.getState().prestige()).toBe(true)
+      expect(getMeasuredIncomePerSecond().eq(0)).toBe(true)
     })
   })
 
@@ -684,6 +785,23 @@ describe('gameStore', () => {
       const state = useGameStore.getState()
       expect(state.upgrades.speed).toBe(MAX_SPEED_UPGRADE)
       expect(state.balls.length).toBe(MAX_BALLS)
+    })
+
+    it('uses the shared idle action when loading offline progress', () => {
+      const saveData = {
+        coins: '1000',
+        prestigeLevel: 0,
+        balls: ['basic'],
+        timestamp: Date.now() - 5 * 60 * 1000,
+      }
+      localStorageMock._setStore({ idleBricksSave: JSON.stringify(saveData) })
+      const applyIdleEarnings = vi.spyOn(useGameStore.getState(), 'applyIdleEarnings')
+
+      useGameStore.getState().load()
+
+      expect(applyIdleEarnings).toHaveBeenCalledOnce()
+      expect(applyIdleEarnings.mock.calls[0][0]).toBeGreaterThanOrEqual(300)
+      applyIdleEarnings.mockRestore()
     })
 
     it('should calculate offline earnings for time > 1 minute', () => {

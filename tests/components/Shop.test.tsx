@@ -1,11 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, within, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import Decimal from 'break_infinity.js'
 import { Shop } from '../../src/components/Shop'
 import { ToastProvider } from '../../src/components/Toast'
 import { useGameStore } from '../../src/store/gameStore'
 import { BALL_TYPES, MAX_PRESTIGE_LEVEL, PRESTIGE_THRESHOLD } from '../../src/types/game'
+import { recordIncome, resetIncomeTracking } from '../../src/store/earnings'
 
 /** Renders Shop inside the required ToastProvider. */
 const renderShop = () =>
@@ -17,6 +18,7 @@ const renderShop = () =>
 
 // Reset store before each test
 const resetStore = () => {
+  resetIncomeTracking()
   useGameStore.setState({
     coins: new Decimal(0),
     bricksBroken: new Decimal(0),
@@ -108,6 +110,23 @@ describe('Shop', () => {
       await user.click(screen.getByRole('tab', { name: /upgrades/i }))
 
       expect(screen.getByText('Need 50 more coins (~8m)')).toBeInTheDocument()
+    })
+
+    it('should use measured income for upgrade time estimates', async () => {
+      useGameStore.setState({
+        balls: [{ id: '1', type: 'basic', x: 0, y: 0, dx: 1, dy: -1 }],
+      })
+      renderShop()
+      const user = userEvent.setup()
+      await user.click(screen.getByRole('tab', { name: /upgrades/i }))
+      expect(screen.getByText('Need 50 more coins (~8m)')).toBeInTheDocument()
+
+      act(() => {
+        recordIncome(new Decimal(300))
+        useGameStore.getState().addCoins(new Decimal(1))
+      })
+
+      expect(screen.getByText('Need 49 more coins (~10s)')).toBeInTheDocument()
     })
 
     it('should render upgrade buttons', async () => {

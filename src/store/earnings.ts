@@ -1,11 +1,44 @@
 import Decimal from 'break_infinity.js';
 import { BALL_TYPES, OFFLINE_EARNINGS_RATE, calculateBrickStats, getPrestigeMultiplier } from '../types';
-import { OFFLINE_EARNINGS_CONSTANT } from '../game/constants';
 import { formatNumber } from '../utils';
 import type { BallData } from '../types';
 
 /** Offline income stops after this much time away. */
 export const MAX_OFFLINE_SECONDS = 24 * 60 * 60;
+
+const INCOME_WINDOW_MS = 60 * 1000;
+let incomeSamples: Array<{ at: number; amount: Decimal }> = [];
+
+const pruneIncomeSamples = (now: number): void => {
+  const cutoff = now - INCOME_WINDOW_MS;
+  let firstActive = 0;
+  while (firstActive < incomeSamples.length && incomeSamples[firstActive].at < cutoff) {
+    firstActive++;
+  }
+  if (firstActive > 0) incomeSamples = incomeSamples.slice(firstActive);
+};
+
+/** Records positive coins actually credited by gameplay, after prestige bonuses. */
+export const recordIncome = (creditedCoins: Decimal): void => {
+  if (!creditedCoins.gt(0)) return;
+  const now = Date.now();
+  pruneIncomeSamples(now);
+  incomeSamples.push({ at: now, amount: creditedCoins });
+};
+
+/** Average actual coin credits over the rolling 60-second measurement window. */
+export const getMeasuredIncomePerSecond = (): Decimal => {
+  pruneIncomeSamples(Date.now());
+  if (incomeSamples.length === 0) return new Decimal(0);
+
+  let total = new Decimal(0);
+  for (const sample of incomeSamples) total = total.add(sample.amount);
+  return total.div(60);
+};
+
+export const resetIncomeTracking = (): void => {
+  incomeSamples = [];
+};
 
 const formatElapsed = (seconds: number): string => {
   const totalMinutes = Math.floor(seconds / 60);
@@ -47,12 +80,12 @@ export const calculateHitRate = (
 /**
  * Simulated bricks-per-second is optimistic: balls bounce and spend time in
  * empty space. Live measurement at tier 1 (one basic ball, 60 s) gave 0.1
- * coins/s against a nominal 1/s, so display and ETA hints apply this factor.
- * Offline earnings keep their own constants and are not affected.
+ * coins/s against a nominal 1/s, so the fallback display and ETA hints apply
+ * this factor until actual gameplay credits are available.
  */
 export const LIVE_INCOME_CALIBRATION = 0.1;
 
-/** Nominal coins per second; offline earnings apply their own constants. */
+/** Nominal coins per second, before live calibration. */
 export const calculateIncomePerSecond = (
   balls: BallData[],
   speedMult: number,
@@ -69,24 +102,17 @@ export const calculateIncomePerSecond = (
 };
 
 export const calculateOfflineEarnings = (
-  balls: BallData[],
-  speedMult: number,
-  damageMult: number,
-  coinMult: number,
-  prestigeLevel: number,
-  currentTier: number,
+  liveIncomePerSecond: Decimal,
   offlineSeconds: number
 ): OfflineEarningsResult => {
-  const safeOfflineSeconds = Math.min(Math.max(0, offlineSeconds), MAX_OFFLINE_SECONDS);
-  const cps = calculateIncomePerSecond(
-    balls,
-    speedMult,
-    damageMult,
-    coinMult,
-    prestigeLevel,
-    currentTier
-  ).mul(OFFLINE_EARNINGS_CONSTANT);
-  const offlineCoins = cps.mul(safeOfflineSeconds).mul(OFFLINE_EARNINGS_RATE).floor();
+  const safeOfflineSeconds = Math.min(
+    Math.max(0, Number.isFinite(offlineSeconds) ? offlineSeconds : 0),
+    MAX_OFFLINE_SECONDS
+  );
+  const offlineCoins = liveIncomePerSecond
+    .mul(safeOfflineSeconds)
+    .mul(OFFLINE_EARNINGS_RATE)
+    .floor();
 
   if (offlineCoins.lte(0)) {
     return { coins: new Decimal(0), message: null };

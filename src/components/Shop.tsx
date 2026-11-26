@@ -92,14 +92,7 @@ export function Shop() {
   };
 
   const prestigeMult = getPrestigeMultiplier(prestigeLevel);
-  const ballTypesKey = useGameStore((state) => state.balls.map((ball) => ball.type).join(','));
-  const currentTier = useGameStore((state) => state.currentTier);
-  const incomePerSecond = useMemo(
-    () => useGameStore.getState().getIncomePerSecond(),
-    // The getter reads the current store; these selections trigger re-renders.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [ballTypesKey, currentTier, upgrades.speed, upgrades.damage, upgrades.coinMult, prestigeLevel]
-  );
+  const incomePerSecond = useGameStore.getState().getIncomePerSecond();
   const nextPrestigeMult = getPrestigeMultiplier(prestigeLevel + 1);
   const canDoPrestige = canPrestige();
   const isMaxPrestige = prestigeLevel >= MAX_PRESTIGE_LEVEL;

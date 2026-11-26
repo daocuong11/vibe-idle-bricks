@@ -10,14 +10,23 @@ versioned local/export saves, total numeric validation, future-version
 rejection, storage-failure toasts, and an unversioned-save migration.
 
 The keyboard half of Batch 3 (#102) is **complete** (2026-11-26, PR #112,
-consolidated from #109/#110); the audio half (#79) remains. Next is Batch 2
-(#100/#76/#101).
+consolidated from #109/#110); the audio half (#79) remains. Batch 2
+(#100/#76/#101) is **implemented** on `fix/idle-lifecycle-offline`; validation
+is green and the change is uncommitted pending review. Design:
+`memory/designs/DESIGN010-lifecycle-and-measured-income.md`.
 
 Current toolchain: React 19.3.0, Phaser 4.2.1, Vite 8.3.3, Vitest 5.0.3,
 TypeScript 6.0.3. The entries below are historical context from the November
 playtest and earlier batches.
 
 ## Recent Changes
+
+- Batch 2 lifecycle/income (#100/#76/#101): save on pagehide and hidden
+  tabs, grant absences of at least 60 seconds through a shared capped idle
+  action, and use one rolling 60-second measured coin rate for live HUD, shop
+  ETA, and 50% offline earnings. Nominal income × 0.1 remains the fallback
+  before samples exist. Tracking resets on load/import/reset/prestige and is
+  not persisted. Validation: lint, typecheck, 405 tests, and build pass.
 
 - In review: accessibility/onboarding batch (#72, #73, #74) on
   `ux/accessibility-batch`. A collapsible hint under the board ("Click a brick
