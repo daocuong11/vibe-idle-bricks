@@ -11,9 +11,9 @@ rejection, storage-failure toasts, and an unversioned-save migration.
 
 The keyboard and audio halves of Batch 3 (#102/#79) are **complete**
 (2026-11-26): keyboard in PR #112 (consolidated from #109/#110) and audio in
-PR #114. Batch 4a is implemented: real `phaser-engine` chunk via
-`codeSplitting`, plus explosion and ball silhouettes (#104/#60/#61). The
-Canvas2D spike and the #56 decision remain.
+PR #114. Batch 4a is **complete** (2026-11-26, PR #115): real
+`phaser-engine` chunk via `codeSplitting`, plus explosion rims and ball
+silhouettes (#104/#60/#61). The Canvas2D spike and the #56 decision remain.
 
 Batch 2 (#100/#76/#101) is **complete** (2026-11-26, PR #113): pagehide and
 hidden-tab saves, 60-second-plus background catch-up through the shared
@@ -26,6 +26,11 @@ TypeScript 6.0.3. The entries below are historical context from the November
 playtest and earlier batches.
 
 ## Recent Changes
+
+- Batch 4a (#104/#60/#61, PR #115): Rolldown `codeSplitting` now emits a real
+  `phaser-engine` chunk (game engine 62 kB, Phaser 1.37 MB, no size warning);
+  explosions use a bright rim with a faint core; ball types have distinct
+  silhouettes (ring, hexagon, star, spikes, crosshair). #56 and #105 remain.
 
 - Batch 3 audio (#79, PR #114): the app's
   one-shot capture listeners call `AudioModule.unlock()` on the first
