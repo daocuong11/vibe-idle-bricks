@@ -4,7 +4,11 @@
 
 Batch 0 from `scratch.md` is **complete** (2026-11-26): PR CI, refreshed
 README/AGENTS/memory constants, `coverage/` untracked, and #51/#81 closed.
-Next is Batch 1, save integrity (#99).
+
+Batch 1 (save integrity, #99) is implemented on `fix/save-integrity` and in
+review: versioned local/export saves, total numeric validation, future-version
+rejection, storage-failure toasts, and an unversioned-save migration. Next:
+merge, then Batch 2 (#100/#76/#101).
 
 Current toolchain: React 19.3.0, Phaser 4.2.1, Vite 8.3.3, Vitest 5.0.3,
 TypeScript 6.0.3. The entries below are historical context from the November

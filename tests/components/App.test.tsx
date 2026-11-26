@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, fireEvent } from '@testing-library/react'
 import App from '../../src/App'
 import Decimal from 'break_infinity.js'
 import { useGameStore } from '../../src/store/gameStore'
@@ -46,6 +46,7 @@ const resetStore = () => {
     explosions: [],
     canvasSize: { width: 800, height: 500 },
     isPaused: false,
+    pendingSaveError: null,
   })
 }
 
@@ -81,5 +82,21 @@ describe('App', () => {
   it('should render game area with mocked Phaser', async () => {
     await act(async () => { render(<App />) })
     expect(await screen.findByTestId('phaser-game')).toBeInTheDocument()
+  })
+
+  it('should show an error toast when saving fails', async () => {
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('QuotaExceededError')
+    })
+
+    try {
+      await act(async () => { render(<App />) })
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /save/i }))
+      })
+      expect(await screen.findByText(/could not save/i)).toBeInTheDocument()
+    } finally {
+      setItemSpy.mockRestore()
+    }
   })
 })

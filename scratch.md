@@ -28,10 +28,12 @@ Why first: protects every later batch and removes misleading constants before ba
 
 Issues: [#99].
 
-- [ ] Reject NaN and Infinity, require non-negative values, clamp prestige to `MAX_PRESTIGE_LEVEL`, clamp ball costs to a sane range.
-- [ ] Always write a schema version (local and export); one parse/migrate path; legacy fixture.
-- [ ] Guard `setItem` with try/catch plus a one-time toast; in-memory fallback.
-- [ ] Tests: NaN coins, negative ball cost, 1e9 prestige, legacy save, quota throw.
+- [x] Reject NaN and Infinity, require non-negative values, clamp prestige to `MAX_PRESTIGE_LEVEL`, clamp ball costs to a sane range.
+- [x] Always write a schema version (local and export); one parse/migrate path; legacy fixture.
+- [x] Guard `setItem` with try/catch plus a one-time toast; in-memory fallback.
+- [x] Tests: NaN/Infinity coins, negative coins/costs, oversized prestige/tier, future version, legacy migration, quota read/write.
+
+Implemented 2026-11-26; PR pending.
 
 Exit criteria: crafted saves cannot soft-lock or mint coins; local saves are versioned and migratable.
 

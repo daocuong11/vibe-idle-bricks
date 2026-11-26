@@ -66,7 +66,7 @@ npm run preview
 2. **Performance**: Maintain 60fps with roughly 200 bricks and 50 balls
 3. **Number Precision**: Use Decimal for all game values to support arbitrarily large numbers
 4. **State Sync**: Zustand store is source of truth; Phaser reads from it each frame
-5. **localStorage**: Save data persists in browser storage (no backend)
+5. **localStorage**: Versioned save data (`SAVE_VERSION`) persists in browser storage; malformed numeric fields fall back to safe values
 
 ## Dependencies Rationale
 

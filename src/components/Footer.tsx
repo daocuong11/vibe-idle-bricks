@@ -36,8 +36,11 @@ export function Footer() {
   const [achievementsOpen, setAchievementsOpen] = useState(false);
 
   const handleSave = () => {
-    save();
-    showToast('Game saved!', 'success');
+    // The shared save-error toast in App reports failures; never claim success
+    // when the write was rejected.
+    if (save()) {
+      showToast('Game saved!', 'success');
+    }
   };
 
   const handleReset = () => setResetOpen(true);

@@ -68,6 +68,11 @@ interface GameStore {
    * Cleared after the UI reads it.
    */
   pendingOfflineMessage: string | null;
+  /**
+   * Set when storage is unavailable or a write fails. The UI shows one toast
+   * per distinct message; a later successful save clears it.
+   */
+  pendingSaveError: string | null;
   /** Map of achievement id → unlock timestamp (ms). Persisted in the save. */
   unlockedAchievements: UnlockedAchievements;
   /**
@@ -174,8 +179,9 @@ interface GameStore {
 
   /**
    * Persists the current game state to local storage.
+   * @returns {boolean} True when the write succeeded.
    */
-  save: () => void;
+  save: () => boolean;
 
   /**
    * Loads the game state from local storage and handles offline progress.
@@ -265,10 +271,36 @@ interface BrickDamageResult {
 }
 
 const ZERO_DECIMAL = new Decimal(0);
+const SAVE_STORAGE_KEY = 'idleBricksSave';
 
+/** Current persisted save schema. Version 0 means a pre-versioning legacy save. */
+export const SAVE_VERSION = 1;
+
+const SAVE_UNAVAILABLE_MESSAGE =
+  'Saving is unavailable in this browser. Progress will be lost when the tab closes.';
+const SAVE_FAILED_MESSAGE =
+  'Could not save your progress. Check browser storage and try again.';
+const SAVE_UNREADABLE_MESSAGE =
+  'Your save could not be read. It may have been created by a newer version of the game.';
+
+/**
+ * break_infinity represents NaN/Infinity as special Decimal values that do not
+ * throw during construction, so validate the rendered form explicitly.
+ */
+const isFiniteDecimal = (value: Decimal): boolean => {
+  const rendered = value.toString();
+  return rendered !== 'NaN' && rendered !== 'Infinity' && rendered !== '-Infinity';
+};
+
+/**
+ * Parses a non-negative Decimal. Malformed, negative, NaN, and Infinity values
+ * fall back instead of poisoning state: a NaN balance makes every purchase
+ * comparison false and permanently soft-locks the game.
+ */
 const parseDecimal = (value: unknown, fallback: Decimal = ZERO_DECIMAL): Decimal => {
   try {
-    return new Decimal(value as string | number);
+    const parsed = new Decimal(value as string | number);
+    return isFiniteDecimal(parsed) && parsed.gte(0) ? parsed : new Decimal(fallback);
   } catch {
     return new Decimal(fallback);
   }
@@ -290,12 +322,22 @@ const parseInteger = (value: unknown, fallback = 0, max?: number): number => {
   return normalizedValue;
 };
 
-const isValidBallType = (value: unknown): value is BallType => {
-  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(BALL_TYPES, value);
+const parseTimestamp = (value: unknown): number => {
+  const numericValue = Number(value);
+  return Number.isFinite(numericValue) && numericValue > 0 ? numericValue : Date.now();
 };
 
-type SaveDataOptions = {
-  includeVersion: boolean;
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/** Missing/non-numeric versions are legacy (0); future versions are rejected. */
+const toSaveVersion = (value: unknown): number => {
+  const numericValue = Number(value);
+  return Number.isInteger(numericValue) && numericValue >= 0 ? numericValue : 0;
+};
+
+const isValidBallType = (value: unknown): value is BallType => {
+  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(BALL_TYPES, value);
 };
 
 interface SaveDataBuilderState {
@@ -311,30 +353,24 @@ interface SaveDataBuilderState {
   unlockedAchievements: UnlockedAchievements;
 }
 
-const buildSaveData = (state: SaveDataBuilderState, options: SaveDataOptions): SaveData => {
-  const base: SaveData = {
-    coins: state.coins.toString(),
-    bricksBroken: state.bricksBroken.toString(),
-    totalBricksBroken: state.totalBricksBroken.toString(),
-    prestigeLevel: state.prestigeLevel,
-    upgrades: state.upgrades,
-    ballCosts: Object.fromEntries(
-      Object.entries(state.ballCosts).map(([k, v]) => [k, v.toString()])
-    ),
-    upgradeCosts: Object.fromEntries(
-      Object.entries(state.upgradeCosts).map(([k, v]) => [k, v.toString()])
-    ),
-    currentTier: state.currentTier,
-    balls: state.balls.map((b) => b.type),
-    unlockedAchievements: state.unlockedAchievements,
-    timestamp: Date.now(),
-  };
-
-  if (options.includeVersion) {
-    return { ...base, version: 1 };
-  }
-  return base;
-};
+const buildSaveData = (state: SaveDataBuilderState): SaveData => ({
+  coins: state.coins.toString(),
+  bricksBroken: state.bricksBroken.toString(),
+  totalBricksBroken: state.totalBricksBroken.toString(),
+  prestigeLevel: state.prestigeLevel,
+  upgrades: state.upgrades,
+  ballCosts: Object.fromEntries(
+    Object.entries(state.ballCosts).map(([k, v]) => [k, v.toString()])
+  ),
+  upgradeCosts: Object.fromEntries(
+    Object.entries(state.upgradeCosts).map(([k, v]) => [k, v.toString()])
+  ),
+  currentTier: state.currentTier,
+  balls: state.balls.map((b) => b.type),
+  unlockedAchievements: state.unlockedAchievements,
+  timestamp: Date.now(),
+  version: SAVE_VERSION,
+});
 
 const resolveBrickDamageBatch = (
   bricks: BrickData[],
@@ -408,6 +444,22 @@ const getDefaultBallCosts = (): Record<BallType, Decimal> => ({
   explosive: new Decimal(BALL_TYPES.explosive.baseCost),
   sniper: new Decimal(BALL_TYPES.sniper.baseCost),
 });
+
+/** Highest cost reachable by buying the ball cap from its base price. */
+const getMaxBallCost = (type: BallType): Decimal =>
+  new Decimal(BALL_TYPES[type].baseCost)
+    .mul(new Decimal(COST_MULTIPLIER).pow(MAX_BALLS))
+    .ceil();
+
+/** Keeps a hydrated cost inside the range the purchase curve can produce. */
+const clampBallCost = (type: BallType, value: unknown): Decimal => {
+  const minimum = new Decimal(BALL_TYPES[type].baseCost);
+  const parsed = parseDecimal(value, minimum);
+  const maximum = getMaxBallCost(type);
+
+  if (parsed.lt(minimum)) return minimum;
+  return parsed.gt(maximum) ? maximum : parsed;
+};
 
 /**
  * Returns the default costs for all upgrades.
@@ -493,16 +545,50 @@ const isStorageLike = (value: unknown): value is StorageLike => {
 };
 
 const getLocalStorage = (): StorageLike | undefined => {
-  if (typeof window !== 'undefined' && isStorageLike(window.localStorage)) {
-    return window.localStorage;
+  if (typeof window !== 'undefined') {
+    try {
+      const storage = window.localStorage;
+      if (isStorageLike(storage)) return storage;
+    } catch {
+      // Access can throw in private mode or when storage is disabled.
+    }
   }
 
-  const maybeLocalStorage = (globalThis as { localStorage?: unknown }).localStorage;
-  if (isStorageLike(maybeLocalStorage)) {
-    return maybeLocalStorage;
+  try {
+    const maybeLocalStorage = (globalThis as { localStorage?: unknown }).localStorage;
+    if (isStorageLike(maybeLocalStorage)) {
+      return maybeLocalStorage;
+    }
+  } catch {
+    // Ignore access failures on the global fallback.
   }
 
   return undefined;
+};
+
+/**
+ * Migrates a raw save object to the current schema. v0 (unversioned local
+ * saves) already matches v1's fields, so promotion only records the version;
+ * future schema changes add their steps here.
+ */
+const migrateSaveData = (raw: Record<string, unknown>, fromVersion: number): SaveData => {
+  const base = raw as SaveData;
+  if (fromVersion < 1) return { ...base, version: SAVE_VERSION };
+  return { ...base, version: SAVE_VERSION };
+};
+
+/**
+ * Validates the save envelope and migrates old versions to the current shape.
+ * Returns null for non-objects and future versions so callers can reject them
+ * instead of hydrating an unknown format.
+ */
+const normalizeSaveData = (raw: unknown): SaveData | null => {
+  if (!isRecord(raw)) return null;
+
+  const version = toSaveVersion(raw.version);
+  if (version > SAVE_VERSION) return null;
+
+  return migrateSaveData(raw, version);
 };
 
 /**
@@ -524,16 +610,17 @@ const parseSaveData = (saveData: SaveData, canvasWidth: number, canvasHeight: nu
   });
 
   const ballCosts = getDefaultBallCosts();
-  if (saveData.ballCosts) {
+  if (isRecord(saveData.ballCosts)) {
     for (const [key, value] of Object.entries(saveData.ballCosts)) {
-      if (Object.prototype.hasOwnProperty.call(ballCosts, key)) {
-        const ballType = key as BallType;
-        ballCosts[ballType] = parseDecimal(value, ballCosts[ballType]);
+      if (isValidBallType(key)) {
+        ballCosts[key] = clampBallCost(key, value);
       }
     }
   }
 
-  const savedUpgrades = saveData.upgrades ?? { speed: 0, damage: 0, coinMult: 0 };
+  const savedUpgrades: Record<string, unknown> = isRecord(saveData.upgrades)
+    ? saveData.upgrades
+    : {};
   // Parse once: costs must use the same clamped level the game will use.
   const upgrades = {
     speed: parseInteger(savedUpgrades.speed, 0, MAX_SPEED_UPGRADE),
@@ -548,7 +635,7 @@ const parseSaveData = (saveData: SaveData, canvasWidth: number, canvasHeight: nu
   // Validate the unlocked-achievements map. Older saves will not have this
   // field, in which case we start with an empty map.
   const unlockedAchievements: UnlockedAchievements = {};
-  if (saveData.unlockedAchievements && typeof saveData.unlockedAchievements === 'object') {
+  if (isRecord(saveData.unlockedAchievements)) {
     for (const [id, ts] of Object.entries(saveData.unlockedAchievements)) {
       if (typeof id === 'string' && Number.isFinite(ts)) {
         unlockedAchievements[id] = Number(ts);
@@ -560,14 +647,14 @@ const parseSaveData = (saveData: SaveData, canvasWidth: number, canvasHeight: nu
     coins: parseDecimal(saveData.coins),
     bricksBroken: parseDecimal(saveData.bricksBroken),
     totalBricksBroken: parseDecimal(saveData.totalBricksBroken),
-    prestigeLevel: parseInteger(saveData.prestigeLevel),
+    prestigeLevel: parseInteger(saveData.prestigeLevel, 0, MAX_PRESTIGE_LEVEL),
     upgrades,
     ballCosts,
     upgradeCosts,
-    currentTier: parseInteger(saveData.currentTier, 1),
+    currentTier: parseInteger(saveData.currentTier, 1, MAX_TIER),
     balls: balls.length > 0 ? balls : [createBall('basic', canvasWidth, canvasHeight)],
     unlockedAchievements,
-    timestamp: saveData.timestamp || Date.now(),
+    timestamp: parseTimestamp(saveData.timestamp),
   };
 };
 
@@ -592,6 +679,7 @@ export const useGameStore = create<GameStore>()(
     canvasSize: { width: 800, height: 500 },
     isPaused: false,
     pendingOfflineMessage: null,
+    pendingSaveError: null,
     unlockedAchievements: getEmptyUnlocks(),
     pendingAchievementUnlocks: [],
     timestamp: Date.now(),
@@ -801,30 +889,47 @@ export const useGameStore = create<GameStore>()(
 
     save: () => {
       const storage = getLocalStorage();
-      if (!storage) return;
-
       const state = get();
-      const saveData = buildSaveData(state, { includeVersion: false });
-      storage.setItem('idleBricksSave', JSON.stringify(saveData));
+
+      if (!storage) {
+        if (typeof window !== 'undefined' && !state.pendingSaveError) {
+          set({ pendingSaveError: SAVE_UNAVAILABLE_MESSAGE });
+        }
+        return false;
+      }
+
+      try {
+        storage.setItem(SAVE_STORAGE_KEY, JSON.stringify(buildSaveData(state)));
+        if (state.pendingSaveError) set({ pendingSaveError: null });
+        return true;
+      } catch (error) {
+        console.error('Failed to save game:', error);
+        if (!state.pendingSaveError) set({ pendingSaveError: SAVE_FAILED_MESSAGE });
+        return false;
+      }
     },
 
     exportSave: () => {
       const state = get();
-      const saveData = buildSaveData(state, { includeVersion: true });
-      return JSON.stringify(saveData);
+      return JSON.stringify(buildSaveData(state));
     },
 
     importSave: (data: string) => {
       try {
-        const saveData = JSON.parse(data);
-        const state = get();
-        const { width, height } = state.canvasSize;
+        const parsed: unknown = JSON.parse(data);
+        if (!isRecord(parsed)) return false;
 
-        // Basic validation
-        if (typeof saveData.coins === 'undefined' || typeof saveData.prestigeLevel === 'undefined') {
-          throw new Error('Invalid save data: missing required fields');
+        // Imports must carry the core fields; partial legacy saves are only
+        // accepted through the load path.
+        if (typeof parsed.coins === 'undefined' || typeof parsed.prestigeLevel === 'undefined') {
+          return false;
         }
 
+        const saveData = normalizeSaveData(parsed);
+        if (!saveData) return false;
+
+        const state = get();
+        const { width, height } = state.canvasSize;
         const partialState = parseSaveData(saveData, width, height);
 
         set({
@@ -834,6 +939,7 @@ export const useGameStore = create<GameStore>()(
           // Importing replaces the in-memory state entirely, so we discard
           // any queued toasts from the previous run.
           pendingAchievementUnlocks: [],
+          pendingSaveError: null,
         });
 
         return true;
@@ -847,11 +953,24 @@ export const useGameStore = create<GameStore>()(
       const storage = getLocalStorage();
       if (!storage) return;
 
-      const saveStr = storage.getItem('idleBricksSave');
+      let saveStr: string | null;
+      try {
+        saveStr = storage.getItem(SAVE_STORAGE_KEY);
+      } catch (error) {
+        console.error('Failed to read save:', error);
+        return;
+      }
       if (!saveStr) return;
 
       try {
-        const saveData = JSON.parse(saveStr);
+        const parsed: unknown = JSON.parse(saveStr);
+        const saveData = normalizeSaveData(parsed);
+        if (!saveData) {
+          console.error('Unsupported or invalid save data');
+          set({ pendingSaveError: SAVE_UNREADABLE_MESSAGE });
+          return;
+        }
+
         const state = get();
         const { width, height } = state.canvasSize;
 
@@ -908,7 +1027,13 @@ export const useGameStore = create<GameStore>()(
 
     reset: () => {
       const storage = getLocalStorage();
-      if (storage) storage.removeItem('idleBricksSave');
+      if (storage) {
+        try {
+          storage.removeItem(SAVE_STORAGE_KEY);
+        } catch (error) {
+          console.error('Failed to remove save:', error);
+        }
+      }
       const state = get();
       const { width, height } = state.canvasSize;
 
@@ -926,6 +1051,7 @@ export const useGameStore = create<GameStore>()(
         explosions: [],
         unlockedAchievements: getEmptyUnlocks(),
         pendingAchievementUnlocks: [],
+        pendingSaveError: null,
         timestamp: Date.now(),
       });
     },

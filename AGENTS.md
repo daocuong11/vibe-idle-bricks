@@ -168,4 +168,4 @@ The most relevant agents are:
 
 ## Auto-Save
 
-Game auto-saves every 30 seconds via Phaser timer. Save format uses stringified Decimals for large number support.
+Game auto-saves every 30 seconds via Phaser timer. Save format uses stringified Decimals for large number support; saves are versioned (`SAVE_VERSION`) and validated on load/import, with malformed numeric fields falling back to safe defaults.

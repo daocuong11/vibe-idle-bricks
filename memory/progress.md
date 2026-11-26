@@ -29,6 +29,7 @@
 - localStorage save/load
 - Offline earnings calculation
 - Save hydration now clamps all upgrade fields and safely defaults malformed values
+- Save validation rejects future versions and sanitizes NaN/Infinity, negative values, oversized prestige/tier, and out-of-range ball costs; writes are versioned and storage failures surface a toast
 
 ### UI ✅
 
@@ -75,7 +76,7 @@
 - TypeScript 6.0.3 (strict, `erasableSyntaxOnly`)
 - ESLint 10.12.0 + typescript-eslint 8.71.1
 - jsdom 30.1.2
-- **Test count**: 365 passing across 31 files
+- **Test count**: 378 passing across 32 files
 - **CI**: `.github/workflows/ci.yml` runs lint, typecheck, `test:run`, and build on PRs and `main`
 
 ## Known Issues
