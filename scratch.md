@@ -79,13 +79,16 @@ Issues: [#103]; enables [#76] and [#81]. Update or close [#52] when the remainin
 - [x] Stage 1: `model/` core with `step`, collisions, damage, reward events, and seeded RNG. Versioned board save is deferred.
 - [x] Port collision, damage, rewards, targeting, click handling, and brick generation; `BoardSimulation` remains the store/effects adapter.
 - [x] Tests: determinism, one-shot damage, batch damage, targeting, AoE, click, and seeded brick setup; core coverage 99.4% statements.
-- [ ] Stage 2: `runtime/` fixed-step loop and 10 Hz snapshots.
+- [x] Stage 2: live 60 fps renderer reads, 10 Hz board mirror, independent external ball/brick/explosion adoption, forced click/resize publication.
 - [ ] Stage 3: versioned board save/restore.
 - [ ] Stage 4: deterministic offline fast-forward.
-- [ ] Move React reads to snapshots; at most 10 store writes per second.
+- [x] Renderers read live runtime state; React reads the 10 Hz store mirror.
+- [ ] Batch reward/progression writes to meet the total <=10 store-writes/second budget.
 
-Stage 1 merged in #117 on 2026-11-26; #103 stays open for Stages 2–4, sequenced
-in `memory/designs/DESIGN012-simulation-core.md`. The store-write budget is not solved.
+Stage 1 merged in #117 on 2026-11-26; Stage 2 is implemented on
+`feat/board-snapshots` and documented in
+`memory/designs/DESIGN012-simulation-core.md`. #103 stays open for Stages 3–4
+and reward-write batching.
 
 ## Batch 6 — Economy redesign (1–2 weeks, design first)
 

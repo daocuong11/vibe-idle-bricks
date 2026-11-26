@@ -88,8 +88,9 @@
 - TypeScript 6.0.3 (strict, `erasableSyntaxOnly`)
 - ESLint 10.12.0 + typescript-eslint 8.71.1
 - jsdom 30.1.2
-- **Test count**: 444 passing across 37 files
+- **Test count**: 450 passing across 37 files
 - **Core coverage**: 99.41% statements (170/171), 100% lines/functions, 87.34% branches
+- **Board publication**: at most 10 store mirror updates per second; renderers read live runtime state
 - **CI**: `.github/workflows/ci.yml` runs lint, typecheck, `test:run`, and build on PRs and `main`
 
 ## Known Issues

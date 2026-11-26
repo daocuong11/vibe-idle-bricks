@@ -126,7 +126,7 @@ export class GameScene extends Phaser.Scene {
   update(_time: number, delta: number) {
     const frameDelta = this.simulation.step(delta);
     if (frameDelta === undefined) return;
-    const state = useGameStore.getState();
+    const state = this.simulation.getRenderState();
     this.ballRenderer.render(state.balls);
     this.brickRenderer.render(state.bricks);
     this.effects.renderExplosions(state.explosions);
