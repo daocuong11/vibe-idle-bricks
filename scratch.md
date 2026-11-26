@@ -108,12 +108,12 @@ Issues: [#66], [#85], [#82], [#83], [#86], [#84].
 - [x] [#66] achievement rewards: one-time Blueprints, shown in the modal and toast. Merged in #119.
 - [x] [#85] batch ball purchase (Max), opt-in auto-buy with a 50% reserve, and run goals at 100/500/1,000 bricks. Offline multiplier is covered by Insight. Merged across #119/#122/#123.
 - [x] [#82] gold and armored bricks MVP; spawn table plus in-game documentation. Merged in #120.
-- [x] [#83] per-ball progression: permanent per-type levels with coin costs, damage/speed effects, and Shop UI. (Closes on merge.)
+- [x] [#83] per-ball progression: permanent per-type levels with coin costs, damage/speed effects, and Shop UI. Merged in #124.
 - [ ] [#86] prestige tree and lifetime stats (after [#99]).
 - [x] [#84] active layer: click-to-mark priority targeting (optional; idle falls back to weakest). Merged in #122.
 
 Batch 7a merged in #119, Batch 7b in #120, #86 in #121, Batch 7c in #122,
-Batch 7d in #123, and Batch 7e closes #83 on merge. Only #56 (HiDPI) remains,
+Batch 7d in #123, and Batch 7e in #124; #83 closed. Only #56 (HiDPI) remains,
 blocked on Phaser 4.
 
 ## Batch 8 — Visual leaves (after Batch 4)

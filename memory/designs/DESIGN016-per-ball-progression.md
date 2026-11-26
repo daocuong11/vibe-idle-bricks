@@ -2,7 +2,7 @@
 
 Date: 2026-11-27
 Issue: #83
-Branch: `feat/per-ball-progression`
+Branch: `feat/per-ball-progression` (merged in PR #124)
 
 ## EARS Requirements
 
