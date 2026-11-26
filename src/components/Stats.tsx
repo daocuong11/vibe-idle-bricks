@@ -1,6 +1,6 @@
 import { useGameStore } from '../store';
 import { formatMultiplier, formatNumber } from '../utils';
-import { MAX_BALLS, PRESTIGE_THRESHOLD, getPrestigeMultiplier } from '../types';
+import { MAX_BALLS, PRESTIGE_THRESHOLD, RUN_GOALS, getPrestigeMultiplier } from '../types';
 import { Coins, BrickWall, Layers, Circle, TrendingUp, Compass } from 'lucide-react';
 
 /**
@@ -17,10 +17,12 @@ export function Stats() {
   const ballCount = useGameStore((state) => state.balls.length);
   const prestigeLevel = useGameStore((state) => state.prestigeLevel);
   const blueprints = useGameStore((state) => state.blueprints);
+  const claimedRunGoals = useGameStore((state) => state.claimedRunGoals);
   const prestigeMult = getPrestigeMultiplier(prestigeLevel);
   const incomePerSecond = useGameStore.getState().getIncomePerSecond();
 
   return (
+    <>
     <div className="stats">
       <div className="stat stat-coins">
         <Coins className="stat-icon" size={24} />
@@ -61,5 +63,44 @@ export function Stats() {
         <label>Blueprints</label>
       </div>
     </div>
+    <section className="run-goals" aria-label="Run goals">
+      <h3 className="run-goals-title">Run Goals</h3>
+      <p className="run-goals-help">Reset when you prestige.</p>
+      <ul className="run-goal-list">
+        {RUN_GOALS.map((goal) => {
+          const claimed = claimedRunGoals.includes(goal.id);
+          const current = claimed
+            ? goal.threshold
+            : bricksBroken.gte(goal.threshold)
+              ? goal.threshold
+              : bricksBroken.toNumber();
+          const percent = Math.min(100, Math.round((current / goal.threshold) * 100));
+
+          return (
+            <li
+              key={goal.id}
+              className={`run-goal ${claimed ? 'is-claimed' : ''}`}
+              data-testid={`run-goal-${goal.id}`}
+            >
+              <div className="run-goal-head">
+                <span>{goal.name}</span>
+                <span className="run-goal-reward">
+                  {claimed ? '✓' : `+ ${goal.rewardBlueprints} BP`}
+                </span>
+              </div>
+              <div className="run-goal-description">{goal.description}</div>
+              <div className="run-goal-progress">
+                <span>{formatNumber(Math.min(current, goal.threshold))} / {formatNumber(goal.threshold)}</span>
+                <span>{percent}%</span>
+              </div>
+              <div className="run-goal-bar" aria-hidden="true">
+                <span style={{ width: `${percent}%` }} />
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+    </>
   );
 }

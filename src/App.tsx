@@ -12,6 +12,7 @@ import { ToastProvider, useToast } from './components/Toast';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useAchievementToasts } from './hooks/useAchievementToasts';
 import { useAutoBuy } from './hooks/useAutoBuy';
+import { useRunGoalToasts } from './hooks/useRunGoalToasts';
 import { useAudioUnlock } from './hooks/useAudioUnlock';
 import { useLifecyclePersistence } from './hooks/useLifecyclePersistence';
 import { useGameStore, useSettingsStore } from './store';
@@ -119,6 +120,7 @@ function GameApp() {
   });
 
   useAchievementToasts();
+  useRunGoalToasts();
   useAudioUnlock();
   useAutoBuy();
   useLifecyclePersistence();

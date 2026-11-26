@@ -119,6 +119,8 @@ describe('achievement store wiring', () => {
       bricksBroken: new Decimal(0),
       totalBricksBroken: new Decimal(0),
       blueprints: new Decimal(0),
+      // Isolate achievement rewards from the run_100 goal reward.
+      claimedRunGoals: ['run_100'],
     })
 
     useGameStore.getState().applyBoardRewards({ bricksBroken: new Decimal(100) })

@@ -92,6 +92,32 @@ export interface Upgrades {
   coinMult: number;
 }
 
+/** Run-scoped goals that reset on prestige. */
+export type RunGoalId = 'run_100' | 'run_500' | 'run_1000';
+
+export interface RunGoalDef {
+  id: RunGoalId;
+  threshold: number;
+  rewardBlueprints: number;
+  name: string;
+  description: string;
+}
+
+export const RUN_GOALS: readonly RunGoalDef[] = [
+  { id: 'run_100', threshold: 100, rewardBlueprints: 1, name: 'Warm-up', description: 'Break 100 bricks in this run.' },
+  { id: 'run_500', threshold: 500, rewardBlueprints: 2, name: 'Momentum', description: 'Break 500 bricks in this run.' },
+  { id: 'run_1000', threshold: 1000, rewardBlueprints: 3, name: 'Run Maker', description: 'Break 1,000 bricks in this run.' },
+];
+
+export const RUN_GOALS_BY_ID: Readonly<Record<RunGoalId, RunGoalDef>> = {
+  run_100: RUN_GOALS[0],
+  run_500: RUN_GOALS[1],
+  run_1000: RUN_GOALS[2],
+};
+
+export const isRunGoalId = (value: unknown): value is RunGoalId =>
+  value === 'run_100' || value === 'run_500' || value === 'run_1000';
+
 /** Permanent progression nodes purchased with Blueprints after prestige. */
 export type PrestigeUpgradeType = 'might' | 'fortune' | 'insight';
 
@@ -253,6 +279,7 @@ export interface SaveData {
   balls?: BallType[];
   board?: SavedBoardData;
   unlockedAchievements?: Record<string, number>;
+  claimedRunGoals?: string[];
   timestamp?: number;
   version?: number;
 }
