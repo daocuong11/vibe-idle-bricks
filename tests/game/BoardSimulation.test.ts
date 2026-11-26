@@ -2,13 +2,19 @@ import Decimal from 'break_infinity.js';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { BoardSimulation } from '../../src/game/BoardSimulation';
 import { useGameStore } from '../../src/store';
+import { getMeasuredIncomePerSecond, resetIncomeTracking } from '../../src/store/earnings';
 import { FIXED_STEP, MIN_BRICKS_ON_SCREEN } from '../../src/game/constants';
+import { createSeededRandom } from '../../src/game/model';
 import { PRESTIGE_THRESHOLD, type BallData, type BrickData } from '../../src/types';
 
 const initial = useGameStore.getState();
-beforeEach(() => vi.useFakeTimers());
+beforeEach(() => {
+  vi.useFakeTimers();
+  resetIncomeTracking();
+});
 afterEach(() => {
   vi.useRealTimers();
+  resetIncomeTracking();
   useGameStore.setState(initial, true);
 });
 
@@ -55,7 +61,7 @@ it('routes a board-space click through the grid and awards a destroyed brick onc
   expect(effects.emitBrickBreakParticles).toHaveBeenCalledTimes(1);
 });
 
-it('destroys a brick on a ball hit and awards its value once', () => {
+it('destroys a brick on a ball hit and batches its reward until the mirror cadence', () => {
   const effects = createEffects();
   const simulation = new BoardSimulation({ width: 800, height: 500 }, effects);
   const brick = makeBrick();
@@ -70,8 +76,18 @@ it('destroys a brick on a ball hit and awards its value once', () => {
   expect(simulation.getRenderState().bricks.some((item) => item.id === brick.id)).toBe(false);
   expect(useGameStore.getState().bricks).toBe(mirroredBricks);
   expect(useGameStore.getState().bricks.some((item) => item.id === brick.id)).toBe(true);
-  expect(useGameStore.getState().coins.eq(coins.add(brick.value))).toBe(true);
+  expect(useGameStore.getState().coins.eq(coins)).toBe(true);
   expect(effects.emitBrickBreakParticles).toHaveBeenCalled();
+
+  vi.advanceTimersByTime(100);
+  simulation.step(0);
+
+  expect(useGameStore.getState().bricks.some((item) => item.id === brick.id)).toBe(false);
+  expect(useGameStore.getState().coins.eq(coins.add(brick.value))).toBe(true);
+
+  vi.advanceTimersByTime(100);
+  simulation.step(0);
+  expect(useGameStore.getState().coins.eq(coins.add(brick.value))).toBe(true);
 });
 
 it('applies explosive damage to nearby bricks', () => {
@@ -276,4 +292,184 @@ it('syncs external explosions and ages them in the world before publication', ()
   simulation.step(FIXED_STEP);
   expect(useGameStore.getState().explosions).toBe(simulation.getRenderState().explosions);
   expect(useGameStore.getState().explosions[0].life).toBe(234);
+});
+
+it('restores saved board bricks on construction instead of regenerating fresh bricks', () => {
+  const savedBrick: BrickData = {
+    id: 'saved-brick-1',
+    x: 120,
+    y: 140,
+    width: 60,
+    height: 25,
+    tier: 3,
+    health: new Decimal(1.5),
+    maxHealth: new Decimal(4.5),
+    value: new Decimal(12),
+  };
+  useGameStore.setState({
+    bricks: [savedBrick],
+    boardSeed: 98765,
+  });
+
+  const simulation = new BoardSimulation({ width: 800, height: 500 }, createEffects());
+  const renderBricks = simulation.getRenderState().bricks;
+  expect(renderBricks).toHaveLength(1);
+  expect(renderBricks[0].id).toBe('saved-brick-1');
+  expect(renderBricks[0].health.eq(1.5)).toBe(true);
+  expect(useGameStore.getState().boardSeed).toBe(98765);
+  simulation.destroy();
+});
+
+it('keeps total store writes at most 10/second during high-rate brick destruction', () => {
+  const simulation = new BoardSimulation({ width: 800, height: 500 }, createEffects());
+  // Pack 20 fragile bricks inside explosionRadius (70) so one impact destroys all 20 in one step.
+  const clusterBricks: BrickData[] = Array.from({ length: 20 }, (_, index) => ({
+    id: `burst-${index}`,
+    x: 90 + (index % 5) * 10,
+    y: 95 + Math.floor(index / 5) * 8,
+    width: 60,
+    height: 25,
+    tier: 1,
+    health: new Decimal(0.5),
+    maxHealth: new Decimal(3),
+    value: new Decimal(5),
+  }));
+  useGameStore.setState({
+    coins: new Decimal(0),
+    bricksBroken: new Decimal(90),
+    totalBricksBroken: new Decimal(90),
+    balls: [makeBall({ id: 'b1', type: 'explosive', x: 96, y: 112, dx: 4, dy: 0 })],
+    bricks: clusterBricks,
+  });
+  simulation.step(0);
+
+  let totalWrites = 0;
+  const unsubscribe = useGameStore.subscribe(() => {
+    totalWrites++;
+  });
+
+  // First 8ms step destroys all 20 bricks in a single explosion; still 0 store writes before 100ms.
+  vi.advanceTimersByTime(8);
+  simulation.step(8);
+  expect(totalWrites).toBe(0);
+
+  for (let i = 1; i < 125; i++) {
+    vi.advanceTimersByTime(8);
+    simulation.step(8);
+  }
+  unsubscribe();
+
+  const state = useGameStore.getState();
+  expect(totalWrites).toBeGreaterThan(0);
+  expect(totalWrites).toBeLessThanOrEqual(10);
+  expect(state.bricksBroken.gte(110)).toBe(true);
+  expect(state.totalBricksBroken.gte(110)).toBe(true);
+  expect(state.currentTier).toBeGreaterThanOrEqual(2);
+  expect(state.coins.gte(100)).toBe(true);
+  expect(state.unlockedAchievements.first_brick).toBeTypeOf('number');
+  expect(state.unlockedAchievements.hundred_bricks).toBeTypeOf('number');
+  expect(getMeasuredIncomePerSecond().gt(0)).toBe(true);
+  simulation.destroy();
+});
+
+it('flushes buffered rewards immediately on save, exportSave, pause, resize, and destroy', () => {
+  useGameStore.setState({ coins: new Decimal(0) });
+  const simulation = new BoardSimulation({ width: 800, height: 500 }, createEffects());
+
+  // 1. Flush on save()
+  useGameStore.setState({
+    balls: [makeBall({ x: 95.5 })],
+    bricks: [makeBrick({ id: 'flush-save', health: new Decimal(0.5), value: new Decimal(7) })],
+  });
+  simulation.step(0);
+  simulation.step(FIXED_STEP);
+  expect(useGameStore.getState().coins.eq(0)).toBe(true);
+  useGameStore.getState().save();
+  expect(useGameStore.getState().coins.eq(7)).toBe(true);
+  expect(useGameStore.getState().bricksBroken.eq(1)).toBe(true);
+
+  // 2. Flush on exportSave()
+  useGameStore.setState({
+    balls: [makeBall({ x: 95.5 })],
+    bricks: [makeBrick({ id: 'flush-export', health: new Decimal(0.5), value: new Decimal(9) })],
+  });
+  simulation.step(0);
+  simulation.step(FIXED_STEP);
+  const exported = JSON.parse(useGameStore.getState().exportSave());
+  expect(exported.coins).toBe('16');
+  expect(exported.bricksBroken).toBe('2');
+
+  // 3. Flush on setPaused(true)
+  useGameStore.setState({
+    balls: [makeBall({ x: 95.5 })],
+    bricks: [makeBrick({ id: 'flush-pause', health: new Decimal(0.5), value: new Decimal(4) })],
+  });
+  simulation.step(0);
+  simulation.step(FIXED_STEP);
+  useGameStore.getState().setPaused(true);
+  expect(useGameStore.getState().coins.eq(20)).toBe(true);
+  expect(useGameStore.getState().bricksBroken.eq(3)).toBe(true);
+  useGameStore.getState().setPaused(false);
+
+  // 4. Flush on resize()
+  useGameStore.setState({
+    balls: [makeBall({ x: 95.5 })],
+    bricks: [makeBrick({ id: 'flush-resize', health: new Decimal(0.5), value: new Decimal(5) })],
+  });
+  simulation.step(0);
+  simulation.step(FIXED_STEP);
+  simulation.resize(700, 450);
+  expect(useGameStore.getState().coins.eq(25)).toBe(true);
+
+  // 5. Flush on destroy() (unmount)
+  useGameStore.setState({
+    balls: [makeBall({ x: 95.5 })],
+    bricks: [makeBrick({ id: 'flush-destroy', health: new Decimal(0.5), value: new Decimal(6) })],
+  });
+  simulation.step(0);
+  simulation.step(FIXED_STEP);
+  expect(useGameStore.getState().coins.eq(25)).toBe(true);
+  simulation.destroy();
+  expect(useGameStore.getState().coins.eq(31)).toBe(true);
+  expect(useGameStore.getState().bricksBroken.eq(5)).toBe(true);
+});
+
+it('flushes buffered bricks before prestige and discards stale rewards on reset', () => {
+  const simulation = new BoardSimulation(
+    { width: 800, height: 500 },
+    createEffects(),
+    createSeededRandom(77)
+  );
+  useGameStore.setState({
+    bricksBroken: new Decimal(PRESTIGE_THRESHOLD - 1),
+    totalBricksBroken: new Decimal(PRESTIGE_THRESHOLD - 1),
+    balls: [makeBall({ x: 95.5 })],
+    bricks: [makeBrick({ id: 'prestige-trigger', health: new Decimal(0.5), value: new Decimal(50) })],
+  });
+  simulation.step(0);
+  simulation.step(FIXED_STEP);
+
+  // Buffered brick has not been flushed to store yet, but prestige() flushes first.
+  expect(useGameStore.getState().prestige()).toBe(true);
+  expect(useGameStore.getState().prestigeLevel).toBe(1);
+  expect(useGameStore.getState().totalBricksBroken.eq(PRESTIGE_THRESHOLD)).toBe(true);
+  expect(useGameStore.getState().coins.eq(0)).toBe(true);
+
+  // Advancing 100ms after prestige must not leak pre-prestige coins into the new run.
+  vi.advanceTimersByTime(100);
+  simulation.step(0);
+  expect(useGameStore.getState().coins.eq(0)).toBe(true);
+
+  // Buffered rewards before reset() must also not leak after reset().
+  useGameStore.setState({
+    balls: [makeBall({ x: 95.5 })],
+    bricks: [makeBrick({ id: 'pre-reset', health: new Decimal(0.5), value: new Decimal(500) })],
+  });
+  simulation.step(0);
+  simulation.step(FIXED_STEP);
+  useGameStore.getState().reset();
+  vi.advanceTimersByTime(100);
+  simulation.step(0);
+  expect(useGameStore.getState().coins.eq(35)).toBe(true);
+  simulation.destroy();
 });

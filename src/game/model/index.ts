@@ -1,4 +1,4 @@
-export { createSeededRandom, type RandomSource } from './rng';
+export { createSeededRandom, type RandomSource, type SeededRandomSource } from './rng';
 export {
   resolveBrickDamageBatch,
   type BrickDamageOperation,

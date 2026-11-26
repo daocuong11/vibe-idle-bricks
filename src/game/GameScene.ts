@@ -143,6 +143,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.scale.off('resize', this.handleResize, this);
+    this.simulation?.destroy();
     this.ballRenderer?.destroy();
     this.brickRenderer?.destroy();
     this.effects?.destroy();

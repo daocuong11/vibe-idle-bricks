@@ -134,6 +134,7 @@ function mount(canvas: HTMLCanvasElement, parent: HTMLDivElement) {
     observer.disconnect();
     canvas.removeEventListener('pointerdown', pointerDown);
     document.removeEventListener('visibilitychange', visibilityChanged);
+    simulation.destroy();
     useGameStore.getState().save();
   };
 }

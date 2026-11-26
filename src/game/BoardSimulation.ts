@@ -1,5 +1,6 @@
-import { useGameStore } from '../store';
-import type { BrickData } from '../types';
+import Decimal from 'break_infinity.js';
+import { registerBoardSyncHandlers, useGameStore } from '../store';
+import { MAX_TIER, type BrickData } from '../types';
 import { formatNumber } from '../utils';
 import { playSound } from '../utils/audio';
 import { BrickManager } from './BrickManager';
@@ -8,13 +9,21 @@ import {
   advanceBoardWorld,
   applyBoardClickDamage,
   createBoardWorld,
+  createSeededRandom,
   findBrickAt,
   refreshBoardWorld,
   takeBoardEvents,
   type BoardEvent,
   type BoardWorld,
   type RandomSource,
+  type SeededRandomSource,
 } from './model';
+
+const ZERO_DECIMAL = new Decimal(0);
+
+const hasSeedState = (source: RandomSource): source is SeededRandomSource =>
+  typeof (source as Partial<SeededRandomSource>).getState === 'function' &&
+  typeof (source as Partial<SeededRandomSource>).setState === 'function';
 
 export type BoardRenderState = Pick<BoardWorld, 'balls' | 'bricks' | 'explosions'>;
 
@@ -28,12 +37,19 @@ export interface BoardEffects {
 export class BoardSimulation {
   private readonly effects: BoardEffects;
   private readonly brickManager: BrickManager;
+  private readonly randomSource: RandomSource;
+  private readonly hasExternalRandom: boolean;
+  private readonly unregisterSyncHandlers: () => void;
   private world: BoardWorld;
   // References last published or adopted from an external store update.
   private publishedBalls: BoardRenderState['balls'] | null = null;
   private publishedBricks: BoardRenderState['bricks'] | null = null;
   private publishedExplosions: BoardRenderState['explosions'] | null = null;
+  private publishedSeed: number | undefined;
   private lastPublishedAt = 0;
+  private pendingCoins: Decimal = ZERO_DECIMAL;
+  private pendingBricksBroken = 0;
+  private boardDirty = false;
 
   constructor(
     size: { width: number; height: number },
@@ -41,28 +57,51 @@ export class BoardSimulation {
     random?: RandomSource
   ) {
     this.effects = effects;
-    this.brickManager = new BrickManager(size, random);
-    const store = useGameStore.getState();
-    store.setCanvasSize(size.width, size.height);
-    const bricks = this.brickManager.generateBricks(INITIAL_BRICKS_TO_GENERATE, store.currentTier);
-    store.setBricks(bricks);
-    this.world = this.createWorld();
-    this.publishBoard(true);
-  }
+    this.hasExternalRandom = random !== undefined;
+    const initialStore = useGameStore.getState();
+    this.randomSource = random ?? createSeededRandom(initialStore.boardSeed);
+    this.brickManager = new BrickManager(size, this.randomSource);
+    initialStore.setCanvasSize(size.width, size.height);
 
-  private createWorld(): BoardWorld {
     const store = useGameStore.getState();
-    return createBoardWorld({
+    const restoredBricks = store.bricks.filter(
+      (brick) =>
+        brick.x >= 0 &&
+        brick.y >= 0 &&
+        brick.width > 0 &&
+        brick.height > 0 &&
+        brick.x + brick.width <= size.width &&
+        brick.y + brick.height <= size.height &&
+        brick.health.gt(0)
+    );
+    const initialBricks =
+      restoredBricks.length > 0
+        ? restoredBricks
+        : this.brickManager.generateBricks(INITIAL_BRICKS_TO_GENERATE, store.currentTier);
+
+    this.publishedBalls = store.balls;
+    this.publishedBricks = store.bricks;
+    this.publishedExplosions = store.explosions;
+    this.publishedSeed = store.boardSeed;
+
+    this.world = createBoardWorld({
       width: store.canvasSize.width,
       height: store.canvasSize.height,
       balls: store.balls,
-      bricks: store.bricks,
+      bricks: initialBricks,
       explosions: store.explosions,
       speedMultiplier: store.getSpeedMult(),
       damageMultiplier: store.getDamageMult(),
       coinMultiplier: store.getCoinMult(),
       time: performance.now(),
     });
+
+    this.boardDirty = true;
+    this.unregisterSyncHandlers = registerBoardSyncHandlers({
+      flush: () => this.flush(),
+      discard: () => this.discardPendingRewards(),
+    });
+    this.publishBoard(true);
   }
 
   private syncWorld(): void {
@@ -72,6 +111,13 @@ export class BoardSimulation {
     this.world.speedMultiplier = store.getSpeedMult();
     this.world.damageMultiplier = store.getDamageMult();
     this.world.coinMultiplier = store.getCoinMult();
+
+    if (this.publishedSeed !== store.boardSeed) {
+      if (!this.hasExternalRandom && hasSeedState(this.randomSource)) {
+        this.randomSource.setState(store.boardSeed);
+      }
+      this.publishedSeed = store.boardSeed;
+    }
 
     // Adopt each array independently: a ball purchase must not restore stale
     // bricks that the live world has already damaged or refilled.
@@ -98,22 +144,68 @@ export class BoardSimulation {
     return { balls: this.world.balls, bricks: this.world.bricks, explosions: this.world.explosions };
   }
 
+  private discardPendingRewards(): void {
+    this.pendingCoins = ZERO_DECIMAL;
+    this.pendingBricksBroken = 0;
+    this.boardDirty = false;
+  }
+
   private publishBoard(force = false): void {
     this.syncWorld();
     const now = performance.now();
     if (!force && now - this.lastPublishedAt < 100) return;
 
+    const hasPendingRewards = this.pendingCoins.gt(0) || this.pendingBricksBroken > 0;
+    const seed = hasSeedState(this.randomSource) ? this.randomSource.getState() : undefined;
+    const boardChanged =
+      this.boardDirty ||
+      this.publishedBalls !== this.world.balls ||
+      this.publishedBricks !== this.world.bricks ||
+      this.publishedExplosions !== this.world.explosions ||
+      (typeof seed === 'number' && this.publishedSeed !== seed);
+
+    if (!hasPendingRewards && !boardChanged) return;
+
+    const coinsToFlush = this.pendingCoins;
+    const bricksToFlush = this.pendingBricksBroken;
+    this.pendingCoins = ZERO_DECIMAL;
+    this.pendingBricksBroken = 0;
+    this.boardDirty = false;
+
     const board = this.getRenderState();
     this.publishedBalls = board.balls;
     this.publishedBricks = board.bricks;
     this.publishedExplosions = board.explosions;
+    if (typeof seed === 'number') {
+      this.publishedSeed = seed;
+    }
     this.lastPublishedAt = now;
-    useGameStore.setState(board);
+
+    useGameStore.getState().applyBoardRewards({
+      coins: coinsToFlush,
+      bricksBroken: bricksToFlush,
+      board: {
+        ...board,
+        seed,
+      },
+    });
+  }
+
+  /** Immediately flushes any buffered rewards and live board state to the store. */
+  flush(): void {
+    this.publishBoard(true);
+  }
+
+  /** Flushes pending state and unregisters store lifecycle callbacks on unmount. */
+  destroy(): void {
+    this.flush();
+    this.unregisterSyncHandlers();
   }
 
   resize(width: number, height: number) {
     this.brickManager.resize(width, height);
     useGameStore.getState().setCanvasSize(width, height);
+    this.boardDirty = true;
     this.publishBoard(true);
   }
 
@@ -122,14 +214,22 @@ export class BoardSimulation {
 
     this.syncWorld();
     const frameDelta = advanceBoardWorld(this.world, delta, performance.now());
+    if (this.world.balls.length > 0 || this.world.explosions.length > 0) {
+      this.boardDirty = true;
+    }
     this.applyEvents(takeBoardEvents(this.world), frameDelta);
 
     const store = useGameStore.getState();
+    const effectiveTier = Math.max(
+      store.currentTier,
+      Math.min(MAX_TIER, 1 + store.bricksBroken.add(this.pendingBricksBroken).div(100).floor().toNumber())
+    );
     const refillTarget = Math.min(MIN_BRICKS_ON_SCREEN, this.brickManager.getCapacity());
     if (this.world.bricks.length < refillTarget) {
-      const newBricks = this.brickManager.addBricksToFillScreen(this.world.bricks, store.currentTier);
+      const newBricks = this.brickManager.addBricksToFillScreen(this.world.bricks, effectiveTier);
       if (newBricks.length > 0) {
         this.world.bricks = [...this.world.bricks, ...newBricks];
+        this.boardDirty = true;
       }
     }
 
@@ -141,6 +241,7 @@ export class BoardSimulation {
   private applyEvents(events: BoardEvent[], frameDelta: number = 0) {
     for (const event of events) {
       if (event.type === 'brickDamaged') {
+        this.boardDirty = true;
         if (event.source !== 'explosion') playSound('ballBounce');
         if (event.showDamageText) {
           this.effects.showFloatingText(
@@ -154,10 +255,10 @@ export class BoardSimulation {
       }
 
       if (event.type === 'brickDestroyed') {
+        this.boardDirty = true;
         if (event.source !== 'explosion') playSound('brickBreak');
-        const store = useGameStore.getState();
-        store.addCoins(event.coins);
-        store.incrementBricksBroken();
+        this.pendingCoins = this.pendingCoins.add(event.coins);
+        this.pendingBricksBroken += 1;
         this.effects.emitBrickBreakParticles(event.brick, event.particleCount);
         if (event.showCoinText) {
           this.effects.showFloatingText(
@@ -171,6 +272,7 @@ export class BoardSimulation {
       }
 
       if (event.type === 'explosion') {
+        this.boardDirty = true;
         this.world.explosions = [
           ...this.world.explosions,
           { x: event.x, y: event.y, radius: event.radius, life: 300 - frameDelta, maxLife: 300 },
@@ -190,6 +292,7 @@ export class BoardSimulation {
     if (applyBoardClickDamage(this.world, x, y)) {
       this.applyEvents(takeBoardEvents(this.world));
       refreshBoardWorld(this.world);
+      this.boardDirty = true;
     }
     this.publishBoard(true);
   }

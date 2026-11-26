@@ -21,6 +21,7 @@ import type {
   Upgrades,
   Explosion,
   SaveData,
+  SavedBrickData,
   UnlockedAchievements,
 } from '../types';
 import {
@@ -87,13 +88,10 @@ interface GameStore {
   pendingSaveError: string | null;
   /** Map of achievement id → unlock timestamp (ms). Persisted in the save. */
   unlockedAchievements: UnlockedAchievements;
-  /**
-   * Queue of achievement ids that have just been unlocked but not yet shown
-   * to the player. The UI drains this queue (showing toasts + modal flashes)
-   * and calls `drainPendingAchievementUnlocks()` to clear it. Kept separate
-   * from `unlockedAchievements` so toasts survive HMR and re-renders.
-   */
+  /** Queue of achievement ids that have just been unlocked but not yet shown. */
   pendingAchievementUnlocks: string[];
+  /** Seed/state for deterministic board RNG across saves. */
+  boardSeed: number;
   /** Timestamp of the last save or update, used for offline earnings. */
   timestamp: number;
 
@@ -123,6 +121,12 @@ interface GameStore {
    * Increments the count of broken bricks and updates the tier if necessary.
    */
   incrementBricksBroken: () => void;
+
+  /**
+   * Applies batched board rewards, progression, achievement checks, and an
+   * optional board mirror snapshot in a single store update.
+   */
+  applyBoardRewards: (batch: BoardRewardBatch) => void;
 
   /**
    * Attempts to purchase a new ball of the specified type.
@@ -282,7 +286,47 @@ const ZERO_DECIMAL = new Decimal(0);
 const SAVE_STORAGE_KEY = 'idleBricksSave';
 
 /** Current persisted save schema. Version 0 means a pre-versioning legacy save. */
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
+
+export interface BoardSnapshotPatch {
+  balls: BallData[];
+  bricks: BrickData[];
+  explosions: Explosion[];
+  seed?: number;
+}
+
+export interface BoardRewardBatch {
+  coins?: Decimal;
+  bricksBroken?: number | Decimal;
+  board?: BoardSnapshotPatch;
+}
+
+export interface BoardSyncHandlers {
+  flush: () => void;
+  discard: () => void;
+}
+
+let activeBoardSyncHandlers: BoardSyncHandlers | null = null;
+
+/** Registers the active BoardSimulation flush/discard callbacks for lifecycle boundaries. */
+export const registerBoardSyncHandlers = (handlers: BoardSyncHandlers): (() => void) => {
+  activeBoardSyncHandlers = handlers;
+  return () => {
+    if (activeBoardSyncHandlers === handlers) {
+      activeBoardSyncHandlers = null;
+    }
+  };
+};
+
+const flushActiveBoard = (): void => {
+  activeBoardSyncHandlers?.flush();
+};
+
+const discardActiveBoard = (): void => {
+  activeBoardSyncHandlers?.discard();
+};
+
+const nextBoardSeed = (): number => (Math.floor(Math.random() * 0xffffffff) >>> 0) || 1;
 
 const SAVE_UNAVAILABLE_MESSAGE =
   'Saving is unavailable in this browser. Progress will be lost when the tab closes.';
@@ -348,6 +392,124 @@ const isValidBallType = (value: unknown): value is BallType => {
   return typeof value === 'string' && Object.prototype.hasOwnProperty.call(BALL_TYPES, value);
 };
 
+const parseStrictDecimal = (value: unknown): Decimal | null => {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) return null;
+  } else if (typeof value === 'string') {
+    if (value.trim() === '') return null;
+  } else {
+    return null;
+  }
+
+  try {
+    const parsed = new Decimal(value);
+    return isFiniteDecimal(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
+const parseSavedBrick = (
+  raw: unknown,
+  maxWidth: number,
+  maxHeight: number,
+  seenIds: Set<string>
+): BrickData | null => {
+  if (!isRecord(raw)) return null;
+  if (typeof raw.id !== 'string') return null;
+  const id = raw.id.trim();
+  if (id.length === 0 || seenIds.has(id)) return null;
+
+  const { x, y, width, height, tier } = raw;
+  if (
+    typeof x !== 'number' ||
+    typeof y !== 'number' ||
+    typeof width !== 'number' ||
+    typeof height !== 'number' ||
+    !Number.isFinite(x) ||
+    !Number.isFinite(y) ||
+    !Number.isFinite(width) ||
+    !Number.isFinite(height)
+  ) {
+    return null;
+  }
+  if (width <= 0 || height <= 0 || x < 0 || y < 0) return null;
+  if (x + width > maxWidth || y + height > maxHeight) return null;
+
+  if (typeof tier !== 'number' || !Number.isFinite(tier) || tier < 1) {
+    return null;
+  }
+  const normalizedTier = Math.min(MAX_TIER, Math.floor(tier));
+
+  const health = parseStrictDecimal(raw.health);
+  const maxHealth = parseStrictDecimal(raw.maxHealth);
+  const value = parseStrictDecimal(raw.value);
+  if (!health || !maxHealth || !value) return null;
+  if (health.lte(0) || maxHealth.lte(0) || value.lt(0)) return null;
+  if (health.gt(maxHealth)) return null;
+
+  seenIds.add(id);
+  return {
+    id,
+    x,
+    y,
+    width,
+    height,
+    tier: normalizedTier,
+    health,
+    maxHealth,
+    value,
+  };
+};
+
+const parseSavedBoard = (
+  rawBoard: unknown,
+  canvasWidth: number,
+  canvasHeight: number,
+  fallbackSeed: number
+): { bricks: BrickData[]; boardSeed: number } => {
+  if (!isRecord(rawBoard)) {
+    return { bricks: [], boardSeed: fallbackSeed };
+  }
+
+  const boardSeed =
+    typeof rawBoard.seed === 'number' && Number.isFinite(rawBoard.seed)
+      ? (Math.floor(rawBoard.seed) >>> 0) || fallbackSeed
+      : fallbackSeed;
+
+  const { width: boardWidth, height: boardHeight } = rawBoard;
+  if (
+    typeof boardWidth !== 'number' ||
+    typeof boardHeight !== 'number' ||
+    !Number.isFinite(boardWidth) ||
+    !Number.isFinite(boardHeight) ||
+    boardWidth <= 0 ||
+    boardHeight <= 0
+  ) {
+    return { bricks: [], boardSeed };
+  }
+
+  if (!Array.isArray(rawBoard.bricks)) {
+    return { bricks: [], boardSeed };
+  }
+
+  const maxWidth = canvasWidth > 0 ? Math.min(boardWidth, canvasWidth) : boardWidth;
+  const maxHeight = canvasHeight > 0 ? Math.min(boardHeight, canvasHeight) : boardHeight;
+  const seenIds = new Set<string>();
+  const bricks: BrickData[] = [];
+
+  for (const item of rawBoard.bricks) {
+    const brick = parseSavedBrick(item, maxWidth, maxHeight, seenIds);
+    if (!brick) {
+      // Any invalid brick rejects the snapshot so callers fall back to fresh setup.
+      return { bricks: [], boardSeed };
+    }
+    bricks.push(brick);
+  }
+
+  return { bricks, boardSeed };
+};
+
 interface SaveDataBuilderState {
   coins: Decimal;
   bricksBroken: Decimal;
@@ -358,8 +520,23 @@ interface SaveDataBuilderState {
   upgradeCosts: Record<keyof Upgrades, Decimal>;
   currentTier: number;
   balls: BallData[];
+  bricks: BrickData[];
+  canvasSize: { width: number; height: number };
+  boardSeed: number;
   unlockedAchievements: UnlockedAchievements;
 }
+
+const serializeBrick = (brick: BrickData): SavedBrickData => ({
+  id: brick.id,
+  x: brick.x,
+  y: brick.y,
+  width: brick.width,
+  height: brick.height,
+  tier: brick.tier,
+  health: brick.health.toString(),
+  maxHealth: brick.maxHealth.toString(),
+  value: brick.value.toString(),
+});
 
 const buildSaveData = (state: SaveDataBuilderState): SaveData => ({
   coins: state.coins.toString(),
@@ -375,6 +552,12 @@ const buildSaveData = (state: SaveDataBuilderState): SaveData => ({
   ),
   currentTier: state.currentTier,
   balls: state.balls.map((b) => b.type),
+  board: {
+    width: state.canvasSize.width,
+    height: state.canvasSize.height,
+    seed: state.boardSeed,
+    bricks: state.bricks.filter((brick) => brick.health.gt(0)).map(serializeBrick),
+  },
   unlockedAchievements: state.unlockedAchievements,
   timestamp: Date.now(),
   version: SAVE_VERSION,
@@ -515,14 +698,20 @@ const getLocalStorage = (): StorageLike | undefined => {
 };
 
 /**
- * Migrates a raw save object to the current schema. v0 (unversioned local
- * saves) already matches v1's fields, so promotion only records the version;
- * future schema changes add their steps here.
+ * Migrates a raw save object to the current schema.
+ * - v0 (unversioned) -> v1: promotes schema version while keeping fields.
+ * - v1 -> v2: adds optional versioned board snapshot (legacy saves omit board
+ *   so BoardSimulation generates a fresh board on load).
  */
 const migrateSaveData = (raw: Record<string, unknown>, fromVersion: number): SaveData => {
-  const base = raw as SaveData;
-  if (fromVersion < 1) return { ...base, version: SAVE_VERSION };
-  return { ...base, version: SAVE_VERSION };
+  let migrated: Record<string, unknown> = { ...raw };
+  if (fromVersion < 1) {
+    migrated = { ...migrated, version: 1 };
+  }
+  if (fromVersion < 2) {
+    migrated = { ...migrated, version: SAVE_VERSION };
+  }
+  return { ...(migrated as SaveData), version: SAVE_VERSION };
 };
 
 /**
@@ -591,6 +780,13 @@ const parseSaveData = (saveData: SaveData, canvasWidth: number, canvasHeight: nu
     }
   }
 
+  const parsedBoard = parseSavedBoard(
+    saveData.board,
+    canvasWidth,
+    canvasHeight,
+    nextBoardSeed()
+  );
+
   return {
     coins: parseDecimal(saveData.coins),
     bricksBroken: parseDecimal(saveData.bricksBroken),
@@ -601,6 +797,8 @@ const parseSaveData = (saveData: SaveData, canvasWidth: number, canvasHeight: nu
     upgradeCosts,
     currentTier: parseInteger(saveData.currentTier, 1, MAX_TIER),
     balls: balls.length > 0 ? balls : [createBall('basic', canvasWidth, canvasHeight)],
+    bricks: parsedBoard.bricks,
+    boardSeed: parsedBoard.boardSeed,
     unlockedAchievements,
     timestamp: parseTimestamp(saveData.timestamp),
   };
@@ -630,6 +828,7 @@ export const useGameStore = create<GameStore>()(
     pendingSaveError: null,
     unlockedAchievements: getEmptyUnlocks(),
     pendingAchievementUnlocks: [],
+    boardSeed: nextBoardSeed(),
     timestamp: Date.now(),
 
     setCanvasSize: (width, height) => {
@@ -680,6 +879,89 @@ export const useGameStore = create<GameStore>()(
       }
 
       get().checkAchievements();
+    },
+
+    applyBoardRewards: (batch) => {
+      const state = get();
+      const rawCoins = batch.coins ?? ZERO_DECIMAL;
+      const hasCoins = rawCoins.gt(0) && isFiniteDecimal(rawCoins);
+      let nextCoins = state.coins;
+      if (hasCoins) {
+        const prestigeBonus = getPrestigeMultiplier(state.prestigeLevel);
+        const creditedCoins = rawCoins.mul(prestigeBonus);
+        nextCoins = state.coins.add(creditedCoins);
+        recordIncome(creditedCoins);
+        if (rawCoins.lt(1000)) {
+          playSound('coin');
+        }
+      }
+
+      const brokenDelta =
+        batch.bricksBroken instanceof Decimal
+          ? batch.bricksBroken
+          : new Decimal(batch.bricksBroken ?? 0);
+      const hasBroken = brokenDelta.gt(0) && isFiniteDecimal(brokenDelta);
+      const nextBricksBroken = hasBroken ? state.bricksBroken.add(brokenDelta) : state.bricksBroken;
+      const nextTotalBricksBroken = hasBroken
+        ? state.totalBricksBroken.add(brokenDelta)
+        : state.totalBricksBroken;
+      const nextTier = hasBroken
+        ? Math.max(
+            state.currentTier,
+            Math.min(MAX_TIER, 1 + nextBricksBroken.div(100).floor().toNumber())
+          )
+        : state.currentTier;
+
+      const nextBalls = batch.board ? batch.board.balls : state.balls;
+
+      let nextUnlocked = state.unlockedAchievements;
+      let nextPendingUnlocks = state.pendingAchievementUnlocks;
+      if (hasCoins || hasBroken || batch.board) {
+        const achievementState: AchievementGameState = {
+          totalBricksBroken: nextTotalBricksBroken,
+          bricksBroken: nextBricksBroken,
+          coins: nextCoins,
+          prestigeLevel: state.prestigeLevel,
+          currentTier: nextTier,
+          balls: nextBalls,
+          upgrades: state.upgrades,
+        };
+        const newlyUnlocked = evaluateAchievements(achievementState, state.unlockedAchievements);
+        if (newlyUnlocked.length > 0) {
+          const unlockedAt = Date.now();
+          nextUnlocked = { ...state.unlockedAchievements };
+          for (const id of newlyUnlocked) {
+            nextUnlocked[id] = unlockedAt;
+          }
+          nextPendingUnlocks = [...state.pendingAchievementUnlocks, ...newlyUnlocked];
+        }
+      }
+
+      const patch: Partial<GameStore> = {};
+      if (hasCoins) patch.coins = nextCoins;
+      if (hasBroken) {
+        patch.bricksBroken = nextBricksBroken;
+        patch.totalBricksBroken = nextTotalBricksBroken;
+        if (nextTier !== state.currentTier) {
+          patch.currentTier = nextTier;
+        }
+      }
+      if (nextUnlocked !== state.unlockedAchievements) {
+        patch.unlockedAchievements = nextUnlocked;
+        patch.pendingAchievementUnlocks = nextPendingUnlocks;
+      }
+      if (batch.board) {
+        patch.balls = batch.board.balls;
+        patch.bricks = batch.board.bricks;
+        patch.explosions = batch.board.explosions;
+        if (typeof batch.board.seed === 'number' && batch.board.seed !== state.boardSeed) {
+          patch.boardSeed = batch.board.seed;
+        }
+      }
+
+      if (Object.keys(patch).length > 0) {
+        set(patch);
+      }
     },
 
     buyBall: (type) => {
@@ -766,11 +1048,13 @@ export const useGameStore = create<GameStore>()(
     },
 
     prestige: () => {
+      flushActiveBoard();
       const state = get();
       if (!get().canPrestige()) return false;
       if (state.prestigeLevel >= MAX_PRESTIGE_LEVEL) return false;
 
       const { width, height } = state.canvasSize;
+      discardActiveBoard();
 
       set({
         prestigeLevel: state.prestigeLevel + 1,
@@ -784,6 +1068,7 @@ export const useGameStore = create<GameStore>()(
         balls: [createBall('basic', width, height)],
         bricks: [],
         explosions: [],
+        boardSeed: nextBoardSeed(),
         timestamp: Date.now(),
       });
 
@@ -850,6 +1135,7 @@ export const useGameStore = create<GameStore>()(
     },
 
     save: () => {
+      flushActiveBoard();
       const storage = getLocalStorage();
       const state = get();
 
@@ -872,6 +1158,7 @@ export const useGameStore = create<GameStore>()(
     },
 
     exportSave: () => {
+      flushActiveBoard();
       const state = get();
       return JSON.stringify(buildSaveData(state));
     },
@@ -893,10 +1180,10 @@ export const useGameStore = create<GameStore>()(
         const state = get();
         const { width, height } = state.canvasSize;
         const partialState = parseSaveData(saveData, width, height);
+        discardActiveBoard();
 
         set({
           ...partialState,
-          bricks: [],
           explosions: [],
           // Importing replaces the in-memory state entirely, so we discard
           // any queued toasts from the previous run.
@@ -939,11 +1226,13 @@ export const useGameStore = create<GameStore>()(
         const { width, height } = state.canvasSize;
 
         const partialState = parseSaveData(saveData, width, height);
+        discardActiveBoard();
 
         // Remove timestamp from partialState before setting to conform to GameStore if necessary,
         // but now timestamp IS in GameStore interface.
         set({
           ...(partialState as Partial<GameStore>),
+          explosions: [],
           // Loading a save replaces the in-memory state; clear any queued
           // toasts so we don't replay the previous session's unlocks.
           pendingAchievementUnlocks: [],
@@ -969,6 +1258,7 @@ export const useGameStore = create<GameStore>()(
     },
 
     reset: () => {
+      discardActiveBoard();
       resetIncomeTracking();
       const storage = getLocalStorage();
       if (storage) {
@@ -993,6 +1283,7 @@ export const useGameStore = create<GameStore>()(
         balls: [createBall('basic', width, height)],
         bricks: [],
         explosions: [],
+        boardSeed: nextBoardSeed(),
         unlockedAchievements: getEmptyUnlocks(),
         pendingAchievementUnlocks: [],
         pendingSaveError: null,
@@ -1000,7 +1291,12 @@ export const useGameStore = create<GameStore>()(
       });
     },
 
-    setPaused: (paused) => set({ isPaused: paused }),
+    setPaused: (paused) => {
+      if (paused) {
+        flushActiveBoard();
+      }
+      set({ isPaused: paused });
+    },
 
     clearOfflineMessage: () => set({ pendingOfflineMessage: null }),
 

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import Decimal from 'break_infinity.js'
-import { planMaxUpgrade, useGameStore } from '../../src/store/gameStore'
+import { planMaxUpgrade, SAVE_VERSION, useGameStore } from '../../src/store/gameStore'
 import { BALL_TYPES, PRESTIGE_THRESHOLD, MAX_TIER, MAX_BALLS, MAX_SPEED_UPGRADE } from '../../src/types/game'
 import {
   getMeasuredIncomePerSecond,
@@ -975,7 +975,7 @@ describe('gameStore', () => {
     it('should include version number', () => {
       const exported = useGameStore.getState().exportSave()
       const data = JSON.parse(exported)
-      expect(data.version).toBe(1)
+      expect(data.version).toBe(SAVE_VERSION)
     })
 
     it('should include timestamp', () => {

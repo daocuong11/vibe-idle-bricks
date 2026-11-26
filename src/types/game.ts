@@ -130,6 +130,31 @@ export interface Explosion {
 }
 
 /**
+ * Serialized representation of a brick in persisted save data.
+ */
+export interface SavedBrickData {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  tier: number;
+  health: string;
+  maxHealth: string;
+  value: string;
+}
+
+/**
+ * Serialized representation of the board snapshot in persisted save data.
+ */
+export interface SavedBoardData {
+  width: number;
+  height: number;
+  seed?: number;
+  bricks: SavedBrickData[];
+}
+
+/**
  * Interface representing the structure of the game save data.
  */
 export interface SaveData {
@@ -142,6 +167,7 @@ export interface SaveData {
   upgradeCosts?: Record<string, string>;
   currentTier?: number;
   balls?: BallType[];
+  board?: SavedBoardData;
   unlockedAchievements?: Record<string, number>;
   timestamp?: number;
   version?: number;
