@@ -114,6 +114,21 @@ describe('achievement store wiring', () => {
     )
   })
 
+  it('grants achievement Blueprints through the batched board reward path', () => {
+    useGameStore.setState({
+      bricksBroken: new Decimal(0),
+      totalBricksBroken: new Decimal(0),
+      blueprints: new Decimal(0),
+    })
+
+    useGameStore.getState().applyBoardRewards({ bricksBroken: new Decimal(100) })
+
+    expect(useGameStore.getState().unlockedAchievements['first_brick']).toBeGreaterThan(0)
+    expect(useGameStore.getState().unlockedAchievements['hundred_bricks']).toBeGreaterThan(0)
+    // first_brick = 1, hundred_bricks = 2
+    expect(useGameStore.getState().blueprints.eq(3)).toBe(true)
+  })
+
   it('grants Blueprints for newly unlocked achievements exactly once', () => {
     useGameStore.setState({ totalBricksBroken: new Decimal(150) })
 

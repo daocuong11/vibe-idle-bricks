@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { useGameStore } from '../store';
-import { Save, Upload, Download, RotateCcw, Settings as SettingsIcon, Trophy } from 'lucide-react';
+import { Save, Upload, Download, RotateCcw, Settings as SettingsIcon, Trophy, BarChart3 } from 'lucide-react';
 import { Modal } from './Modal';
 import { useToast } from './Toast';
 import { SettingsDrawer } from './SettingsDrawer';
 import { AchievementsModal } from './AchievementsModal';
+import { RecordsModal } from './RecordsModal';
 
 /**
  * Footer component containing save management controls.
@@ -34,6 +35,9 @@ export function Footer() {
 
   // Achievements modal state
   const [achievementsOpen, setAchievementsOpen] = useState(false);
+
+  // Records modal state
+  const [recordsOpen, setRecordsOpen] = useState(false);
 
   const handleSave = () => {
     // The shared save-error toast in App reports failures; never claim success
@@ -123,6 +127,15 @@ export function Footer() {
         >
           <Trophy size={16} className="inline-block mr-2" style={{ verticalAlign: 'text-bottom' }} aria-hidden="true" /> Achievements
         </button>
+        <button
+          className="btn btn-records"
+          onClick={() => setRecordsOpen(true)}
+          aria-haspopup="dialog"
+          aria-expanded={recordsOpen}
+          data-testid="open-records"
+        >
+          <BarChart3 size={16} className="inline-block mr-2" style={{ verticalAlign: 'text-bottom' }} aria-hidden="true" /> Records
+        </button>
         <span className="auto-save-status">Auto-saves every 30s</span>
       </footer>
 
@@ -175,6 +188,10 @@ export function Footer() {
       <AchievementsModal
         open={achievementsOpen}
         onClose={() => setAchievementsOpen(false)}
+      />
+      <RecordsModal
+        open={recordsOpen}
+        onClose={() => setRecordsOpen(false)}
       />
     </>
   );

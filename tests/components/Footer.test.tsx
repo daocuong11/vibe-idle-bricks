@@ -22,6 +22,11 @@ const resetStore = () => {
     bricksBroken: new Decimal(0),
     totalBricksBroken: new Decimal(0),
     prestigeLevel: 0,
+    blueprints: new Decimal(0),
+    prestigeUpgrades: { might: 0, fortune: 0, insight: 0 },
+    lifetimeCoins: new Decimal(0),
+    bestTier: 1,
+    playTimeMs: 0,
     upgrades: { speed: 0, damage: 0, coinMult: 0 },
     ballCosts: {
       basic: new Decimal(BALL_TYPES.basic.baseCost),
@@ -377,5 +382,25 @@ describe('Footer', () => {
       // State should be unchanged
       expect(useGameStore.getState().coins.eq(100)).toBe(true)
     })
+  })
+
+  it('opens read-only records from the Footer', async () => {
+    const user = userEvent.setup()
+    useGameStore.setState({
+      lifetimeCoins: new Decimal(2500),
+      totalBricksBroken: new Decimal(3000),
+      bestTier: 6,
+      playTimeMs: 65000,
+    })
+    renderFooter()
+
+    await user.click(screen.getByTestId('open-records'))
+
+    expect(screen.getByRole('dialog', { name: /records/i })).toBeInTheDocument()
+    expect(screen.getByTestId('records-lifetime-coins')).toHaveTextContent('2.50K')
+    expect(screen.getByTestId('records-best-tier')).toHaveTextContent('6')
+    expect(screen.getByTestId('records-play-time')).toHaveTextContent('1m 5s')
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: /done/i }))
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 })

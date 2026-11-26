@@ -96,6 +96,12 @@ All gameplay values (health, coins, damage) use `break_infinity.js` `Decimal` ob
 
 Ball stats, costs, tier formulas, and the prestige multiplier live in [`src/types/game.ts`](src/types/game.ts). This README summarizes them; the code is authoritative.
 
+### Progression and Records
+
+Prestige resets the current run at 10,000 bricks while preserving upgrades, Blueprints, achievements, and the permanent prestige tree. The tree has three uncapped nodes: **Might** (+10% damage), **Fortune** (+10% live/simulated coin income), and **Insight** (+10% idle/offline income) per level. Each node costs `ceil(baseCost × 1.6^level)` Blueprints.
+
+The Footer **Records** dialog shows lifetime credited coins, total bricks, best/current tier, run bricks, prestiges, Blueprints, and active playtime. Saves use version 4 and migrate older saves with zeroed tree/records.
+
 ## 📁 Project Structure
 
 ```text

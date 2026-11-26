@@ -92,6 +92,69 @@ export interface Upgrades {
   coinMult: number;
 }
 
+/** Permanent progression nodes purchased with Blueprints after prestige. */
+export type PrestigeUpgradeType = 'might' | 'fortune' | 'insight';
+
+/** Levels of permanent prestige-tree nodes; there is no level cap. */
+export interface PrestigeUpgrades {
+  might: number;
+  fortune: number;
+  insight: number;
+}
+
+/** Static balance configuration for a permanent prestige-tree node. */
+export interface PrestigeUpgradeConfig {
+  name: string;
+  description: string;
+  baseCost: number;
+}
+
+export const PRESTIGE_UPGRADE_COST_MULTIPLIER = 1.6;
+export const PRESTIGE_UPGRADE_EFFECT_MULTIPLIER = 1.1;
+/** Hydration/UI guard against absurd crafted node levels. */
+export const MAX_PRESTIGE_UPGRADE_LEVEL = 10_000;
+
+export const PRESTIGE_UPGRADES: Record<PrestigeUpgradeType, PrestigeUpgradeConfig> = {
+  might: {
+    name: 'Might',
+    description: '+10% damage per level',
+    baseCost: 2,
+  },
+  fortune: {
+    name: 'Fortune',
+    description: '+10% live and simulated coins per level',
+    baseCost: 2,
+  },
+  insight: {
+    name: 'Insight',
+    description: '+10% idle and offline coins per level',
+    baseCost: 3,
+  },
+};
+
+/** Creates the zero-level prestige tree. */
+export const getDefaultPrestigeUpgrades = (): PrestigeUpgrades => ({
+  might: 0,
+  fortune: 0,
+  insight: 0,
+});
+
+/** Cost of the next node level: ceil(baseCost × 1.6^level). */
+export const getPrestigeUpgradeCost = (type: PrestigeUpgradeType, level: number): Decimal => {
+  const safeLevel = Number.isFinite(level) ? Math.max(0, Math.floor(level)) : 0;
+  return new Decimal(PRESTIGE_UPGRADES[type].baseCost)
+    .mul(new Decimal(PRESTIGE_UPGRADE_COST_MULTIPLIER).pow(safeLevel))
+    .ceil();
+};
+
+/** Permanent node effect: 1.1^level, uncapped. */
+export const getPrestigeUpgradeMultiplier = (_type: PrestigeUpgradeType, level: number): Decimal => {
+  const safeLevel = Number.isFinite(level)
+    ? Math.min(MAX_PRESTIGE_UPGRADE_LEVEL, Math.max(0, Math.floor(level)))
+    : 0;
+  return new Decimal(PRESTIGE_UPGRADE_EFFECT_MULTIPLIER).pow(safeLevel);
+};
+
 /**
  * The core state of the game, managed by the store.
  */
@@ -106,6 +169,14 @@ export interface GameState {
   prestigeLevel: number;
   /** Persistent prestige currency earned on prestige. */
   blueprints: Decimal;
+  /** Permanent levels of the prestige tree. */
+  prestigeUpgrades: PrestigeUpgrades;
+  /** Total coins actually credited across all runs, excluding starting/imported balances. */
+  lifetimeCoins: Decimal;
+  /** Highest tier reached across all runs. */
+  bestTier: number;
+  /** Active play time in milliseconds, persisted on save. */
+  playTimeMs: number;
   /** Current levels of purchased upgrades. */
   upgrades: Upgrades;
   /** Current cost to purchase the next ball of each type. */
@@ -171,6 +242,10 @@ export interface SaveData {
   totalBricksBroken?: string;
   prestigeLevel?: number;
   blueprints?: string;
+  prestigeUpgrades?: Partial<PrestigeUpgrades>;
+  lifetimeCoins?: string;
+  bestTier?: number;
+  playTimeMs?: number;
   upgrades?: Upgrades;
   ballCosts?: Record<string, string>;
   upgradeCosts?: Record<string, string>;

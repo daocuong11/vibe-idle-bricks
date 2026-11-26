@@ -76,7 +76,9 @@ Game auto-saves every 30s via Phaser timer. Manual save/load available in store.
 
 ### Prestige System
 
-Reset triggered at 10,000 bricks broken. Resets: coins, balls, ball costs, tier, and this run's bricks. Keeps: upgrades, upgrade costs, `prestigeLevel`, `totalBricksBroken`.
+Reset triggered at 10,000 bricks broken. Resets: coins, balls, ball costs, tier, and this run's bricks. Keeps: upgrades, upgrade costs, `prestigeLevel`, `totalBricksBroken`, Blueprints, and the permanent prestige tree. Save format is version 4 (`SAVE_VERSION`) and migrates v0–v3 saves with zeroed tree/records and `bestTier = currentTier`.
+
+The Prestige shop tab has three uncapped Blueprint nodes: Might (`1.1^level` damage), Fortune (`1.1^level` live/simulated coin income), and Insight (`1.1^level` idle/offline income). Node cost is `ceil(baseCost × 1.6^level)`. Board rewards already include Fortune, so the store applies only the prestige bonus before crediting `lifetimeCoins`. Lifetime coins, total bricks, best/current tier, and bounded active playtime are shown in the Footer Records dialog.
 
 ## Workflow Guidelines
 

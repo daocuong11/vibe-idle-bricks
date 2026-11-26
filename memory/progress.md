@@ -21,7 +21,8 @@
 
 - Coin earning based on brick value
 - Tier progression (every 100 bricks up to tier 20)
-- Prestige system with a fixed 10,000-brick goal and a ×1.75 damage and coin multiplier per level; upgrades are kept across prestiges
+- Prestige system with a fixed 10,000-brick goal and a ×1.25 damage and coin multiplier per level; upgrades, Blueprints, achievements, and the permanent prestige tree are kept across prestiges
+- Prestige tree with uncapped Might (damage), Fortune (live/simulated coins), and Insight (idle/offline coins) nodes; costs grow by 1.6× and effects by 1.1× per level
 - Speed, damage, and coin multiplier upgrades
 
 ### Persistence ✅
@@ -32,13 +33,15 @@
 - Offline earnings use 50% of the measured-or-fallback live rate; the same rolling 60-second rate powers the Stats HUD and Shop ETAs
 - Save hydration now clamps all upgrade fields and safely defaults malformed values
 - Save validation rejects future versions and sanitizes NaN/Infinity, negative values, oversized prestige/tier, and out-of-range ball costs; writes are versioned and storage failures surface a toast
+- Version 4 saves persist prestige-tree levels, lifetime credited coins, best tier, and bounded active playtime; v0–v3 saves migrate safely
 
 ### UI ✅
 
 - Stats display (coins, bricks, balls)
 - Shop panel with ball purchases
 - Upgrade buttons with costs
-- Prestige button with progress indicator
+- Prestige button with progress indicator and permanent Blueprint tree cards
+- Footer Records dialog with lifetime coins, total bricks, best/current tier, run bricks, prestiges, Blueprints, and active playtime
 - Keyboard shortcuts ignore interactive controls so Space activates a focused button instead of pausing
 - Audio unlocks from the first gesture; ball/brick/coin cues have a 30 ms cooldown and an 8-voice, 600 ms cap
 - Explosions use a faint core with a bright rim; ball types have distinct silhouettes (ring, hexagon, star, spikes, crosshair)
@@ -90,7 +93,7 @@
 - TypeScript 6.0.3 (strict, `erasableSyntaxOnly`)
 - ESLint 10.12.0 + typescript-eslint 8.71.1
 - jsdom 30.1.2
-- **Test count**: 494 passing across 40 files
+- **Test count**: 510 passing across 42 files
 - **Core coverage**: 99.41% statements (170/171), 100% lines/functions, 87.34% branches
 - **Board publication**: at most 10 store mirror updates per second; renderers read live runtime state
 - **CI**: `.github/workflows/ci.yml` runs lint, typecheck, `test:run`, and build on PRs and `main`

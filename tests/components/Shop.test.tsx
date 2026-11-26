@@ -25,6 +25,10 @@ const resetStore = () => {
     totalBricksBroken: new Decimal(0),
     prestigeLevel: 0,
     blueprints: new Decimal(0),
+    prestigeUpgrades: { might: 0, fortune: 0, insight: 0 },
+    lifetimeCoins: new Decimal(0),
+    bestTier: 1,
+    playTimeMs: 0,
     upgrades: { speed: 0, damage: 0, coinMult: 0 },
     ballCosts: {
       basic: new Decimal(BALL_TYPES.basic.baseCost),
@@ -278,7 +282,7 @@ describe('Shop', () => {
       const prestigeTab = screen.getByRole('tab', { name: /prestige/i })
       await user.click(prestigeTab)
 
-      const prestigeButton = within(screen.getByRole('heading', { name: /prestige/i }).parentElement!).getByRole('button', { name: /prestige/i })
+      const prestigeButton = within(screen.getByRole('heading', { name: /^prestige$/i }).parentElement!).getByRole('button', { name: /prestige/i })
       expect(prestigeButton).toBeDisabled()
     })
 
@@ -315,7 +319,7 @@ describe('Shop', () => {
       const user = userEvent.setup()
       await user.click(screen.getByRole('tab', { name: /prestige/i }))
 
-      const prestigeButton = within(screen.getByRole('heading', { name: /prestige/i }).parentElement!).getByRole('button', { name: /prestige/i })
+      const prestigeButton = within(screen.getByRole('heading', { name: /^prestige$/i }).parentElement!).getByRole('button', { name: /prestige/i })
       expect(prestigeButton).not.toBeDisabled()
     })
 
@@ -329,7 +333,7 @@ describe('Shop', () => {
       const prestigeTab = screen.getByRole('tab', { name: /prestige/i })
       await user.click(prestigeTab)
 
-      const prestigeButton = within(screen.getByRole('heading', { name: /prestige/i }).parentElement!).getByRole('button', { name: /prestige/i })
+      const prestigeButton = within(screen.getByRole('heading', { name: /^prestige$/i }).parentElement!).getByRole('button', { name: /prestige/i })
       expect(prestigeButton).not.toBeDisabled()
     })
 
@@ -360,7 +364,7 @@ describe('Shop', () => {
       renderShop()
       const prestigeTab = screen.getByRole('tab', { name: /prestige/i })
       await user.click(prestigeTab)
-      const prestigeButton = within(screen.getByRole('heading', { name: /prestige/i }).parentElement!).getByRole('button', { name: /prestige/i })
+      const prestigeButton = within(screen.getByRole('heading', { name: /^prestige$/i }).parentElement!).getByRole('button', { name: /prestige/i })
       await user.click(prestigeButton)
 
       // In-app modal should open
@@ -379,7 +383,7 @@ describe('Shop', () => {
       renderShop()
       const prestigeTab = screen.getByRole('tab', { name: /prestige/i })
       await user.click(prestigeTab)
-      const prestigeButton = within(screen.getByRole('heading', { name: /prestige/i }).parentElement!).getByRole('button', { name: /prestige/i })
+      const prestigeButton = within(screen.getByRole('heading', { name: /^prestige$/i }).parentElement!).getByRole('button', { name: /prestige/i })
       await user.click(prestigeButton)
 
       // Confirm in the modal
@@ -404,7 +408,7 @@ describe('Shop', () => {
       renderShop()
       const prestigeTab = screen.getByRole('tab', { name: /prestige/i })
       await user.click(prestigeTab)
-      const prestigeButton = within(screen.getByRole('heading', { name: /prestige/i }).parentElement!).getByRole('button', { name: /prestige/i })
+      const prestigeButton = within(screen.getByRole('heading', { name: /^prestige$/i }).parentElement!).getByRole('button', { name: /prestige/i })
       await user.click(prestigeButton)
 
       const dialog = screen.getByRole('dialog')
@@ -442,5 +446,39 @@ describe('Shop', () => {
       expect(prestigeTab).toHaveAttribute('aria-selected', 'true')
       expect(prestigeTab).toHaveFocus()
     })
+  })
+})
+
+describe('prestige tree UI', () => {
+  beforeEach(() => {
+    resetStore()
+  })
+
+  it('shows all permanent nodes with costs and effects', async () => {
+    const user = userEvent.setup()
+    renderShop()
+    await user.click(screen.getByRole('tab', { name: /prestige/i }))
+
+    expect(screen.getByRole('heading', { name: /prestige tree/i })).toBeInTheDocument()
+    expect(screen.getByLabelText('Buy Might')).toBeDisabled()
+    expect(screen.getByLabelText('Buy Fortune')).toBeDisabled()
+    expect(screen.getByLabelText('Buy Insight')).toBeDisabled()
+    expect(screen.getByText(/damage: ×1 → ×1\.1/i)).toBeInTheDocument()
+    expect(screen.getByText(/live coins: ×1 → ×1\.1/i)).toBeInTheDocument()
+    expect(screen.getByText(/idle coins: ×1 → ×1\.1/i)).toBeInTheDocument()
+  })
+
+  it('buys a node and updates its level and Blueprint balance', async () => {
+    useGameStore.setState({ blueprints: new Decimal(10) })
+    const user = userEvent.setup()
+    renderShop()
+    await user.click(screen.getByRole('tab', { name: /prestige/i }))
+
+    await user.click(screen.getByLabelText('Buy Might'))
+
+    expect(useGameStore.getState().prestigeUpgrades.might).toBe(1)
+    expect(useGameStore.getState().blueprints.eq(8)).toBe(true)
+    expect(screen.getByText(/damage: ×1\.1 → ×1\.21/i)).toBeInTheDocument()
+    expect(screen.getByText('8 Blueprints')).toBeInTheDocument()
   })
 })
