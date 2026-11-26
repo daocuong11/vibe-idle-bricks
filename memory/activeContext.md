@@ -7,8 +7,11 @@ README/AGENTS/memory constants, `coverage/` untracked, and #51/#81 closed.
 
 Batch 1 (save integrity, #99) is **complete** (2026-11-26, PR #111):
 versioned local/export saves, total numeric validation, future-version
-rejection, storage-failure toasts, and an unversioned-save migration. Next is
-Batch 2 (#100/#76/#101).
+rejection, storage-failure toasts, and an unversioned-save migration.
+
+The keyboard half of Batch 3 (#102) is **complete** (2026-11-26, PR #112,
+consolidated from #109/#110); the audio half (#79) remains. Next is Batch 2
+(#100/#76/#101).
 
 Current toolchain: React 19.3.0, Phaser 4.2.1, Vite 8.3.3, Vitest 5.0.3,
 TypeScript 6.0.3. The entries below are historical context from the November

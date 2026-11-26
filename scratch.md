@@ -54,9 +54,11 @@ Note: [#101] is shippable now with a measured EMA; do not wait for [#103].
 
 Issues: [#102], [#79].
 
-- [ ] Ignore Space/P when the event target is a button, link, summary, or `[role=button]`.
+- [x] Ignore Space/P when the event target is a button, link, summary, or `[role=button]`. Merged in #112.
 - [ ] Unlock the AudioContext on the first pointerdown/keydown; add a ~30 ms per-sound gate and an ~8-voice cap.
-- [ ] Tests: focused Buy + Space does not pause; shortcut still works on body/canvas.
+- [x] Tests: focused Buy + Space does not pause; shortcut still works on body/canvas.
+
+Keyboard half done in #112 (consolidated from #109/#110); audio (#79) remains.
 
 ## Batch 4 — Rendering decision (3–5 days, spike)
 

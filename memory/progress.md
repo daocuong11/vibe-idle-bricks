@@ -37,6 +37,7 @@
 - Shop panel with ball purchases
 - Upgrade buttons with costs
 - Prestige button with progress indicator
+- Keyboard shortcuts ignore interactive controls so Space activates a focused button instead of pausing
 
 ## What's Left to Build
 
@@ -76,7 +77,7 @@
 - TypeScript 6.0.3 (strict, `erasableSyntaxOnly`)
 - ESLint 10.12.0 + typescript-eslint 8.71.1
 - jsdom 30.1.2
-- **Test count**: 378 passing across 32 files
+- **Test count**: 383 passing across 32 files
 - **CI**: `.github/workflows/ci.yml` runs lint, typecheck, `test:run`, and build on PRs and `main`
 
 ## Known Issues
