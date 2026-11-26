@@ -2,8 +2,8 @@
 
 ## Current Work Focus
 
-Batch 7c (**Active focus + auto-buy**) is implemented on
-`feat/active-focus-autobuy` (2026-11-27): clicking a brick now marks it as the
+Batch 7c (**Active focus + auto-buy**) is **complete** (2026-11-27,
+PR #122): clicking a brick now marks it as the
 priority target for targeting balls, with a yellow focus ring in Phaser and the
 Canvas spike; idle play falls back to the weakest brick. Settings gain an
 opt-in auto-buy that buys affordable upgrades/balls once per second while
@@ -76,7 +76,7 @@ playtest and earlier batches.
 
 ## Recent Changes
 
-- Batch 7c: click-to-mark priority targeting in the pure core, BoardSimulation,
+- Batch 7c (PR #122): click-to-mark priority targeting in the pure core, BoardSimulation,
   Phaser renderer, and Canvas spike; opt-in Settings auto-buy with a 50% coin
   reserve; app-start settings hydration. Regression tests cover targeting,
   focus rendering, reserve behavior, persistence, and the one-second tick.
