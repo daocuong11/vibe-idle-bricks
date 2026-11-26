@@ -4,13 +4,11 @@
  * Goals:
  *  - Zero asset files: every effect is synthesised on demand from a couple of
  *    oscillators + envelopes, so the production bundle is unchanged.
- *  - Lazily created AudioContext so browsers don't flag "audio before
- *    interaction"; the first call to `getContext()` resumes it on demand.
+ *  - AudioContext is created only after the first user gesture unlocks it.
  *  - Respect a `getEnabled()` flag so the UI can mute everything.
  *
- * The exported helpers (playBallBounce, playBrickBreak, playCoin, playPurchase,
- * playPrestige) are intentionally fire-and-forget; failures are swallowed so a
- * missing AudioContext (e.g. in tests or some browsers) never breaks the game.
+ * The exported `playSound` helper is intentionally fire-and-forget; failures
+ * are swallowed so missing Web Audio support never breaks the game.
  */
 
 export type SoundName = 'ballBounce' | 'brickBreak' | 'coin' | 'purchase' | 'prestige';
@@ -19,6 +17,7 @@ interface AudioModule {
   getContext: () => AudioContext | null;
   isEnabled: () => boolean;
   setEnabled: (enabled: boolean) => void;
+  unlock: () => void;
   play: (name: SoundName) => void;
 }
 
@@ -37,6 +36,16 @@ const DEFAULT_ENVELOPE: EnvelopeOptions = {
   release: 0.12,
   peak: 0.18,
 };
+
+const SOUND_COOLDOWN_MS = 30;
+const MAX_VOICES = 8;
+// The longest cue stops at 0.56 s; keep its voice slot slightly longer.
+const VOICE_RELEASE_MS = 600;
+const THROTTLED_SOUNDS: ReadonlySet<SoundName> = new Set([
+  'ballBounce',
+  'brickBreak',
+  'coin',
+]);
 
 const clamp = (value: number, min: number, max: number): number =>
   Math.max(min, Math.min(max, value));
@@ -191,34 +200,59 @@ const GLOBAL_KEY = '__idleBricksAudioModule__';
 const buildAudioModule = (): AudioModule => {
   let context: AudioContext | null = null;
   let enabled = true;
+  let unlocked = false;
+  let resumePending = false;
+  const lastPlayedAt: Partial<Record<SoundName, number>> = {};
+  const voiceStartedAt: number[] = [];
 
-  const getContext = (): AudioContext | null => {
-    if (typeof window === 'undefined') return null;
-    if (context) return context;
+  const getContext = (): AudioContext | null => context;
+
+  const resume = (ctx: AudioContext): void => {
+    if (ctx.state !== 'suspended' || resumePending) return;
+    resumePending = true;
+    void ctx.resume().catch(() => {
+      // Ignore resume failures; we'll try again on the next unlock()/play().
+    }).finally(() => {
+      resumePending = false;
+    });
+  };
+
+  const unlock = (): void => {
+    unlocked = true;
+    if (context) {
+      resume(context);
+      return;
+    }
+    if (typeof window === 'undefined') return;
     const AudioCtor: typeof AudioContext | undefined =
       window.AudioContext ||
       (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioCtor) return null;
+    if (!AudioCtor) return;
     try {
       context = new AudioCtor();
+      resume(context);
     } catch {
       context = null;
     }
-    return context;
   };
 
-  const resume = (ctx: AudioContext) => {
-    if (ctx.state === 'suspended') {
-      void ctx.resume().catch(() => {
-        // Ignore resume failures; we'll try again on the next play().
-      });
-    }
-  };
-
-  const play = (name: SoundName) => {
-    if (!enabled) return;
+  const play = (name: SoundName): void => {
+    if (!enabled || !unlocked) return;
     const ctx = getContext();
     if (!ctx) return;
+
+    const now = performance.now();
+    while (voiceStartedAt.length > 0 && now - voiceStartedAt[0] >= VOICE_RELEASE_MS) {
+      voiceStartedAt.shift();
+    }
+    if (voiceStartedAt.length >= MAX_VOICES) return;
+    if (THROTTLED_SOUNDS.has(name)) {
+      const lastPlayed = lastPlayedAt[name] ?? -Infinity;
+      if (now - lastPlayed < SOUND_COOLDOWN_MS) return;
+    }
+
+    lastPlayedAt[name] = now;
+    voiceStartedAt.push(now);
     resume(ctx);
     try {
       SOUND_PLAYERS[name](ctx);
@@ -233,6 +267,7 @@ const buildAudioModule = (): AudioModule => {
     setEnabled: (next) => {
       enabled = next;
     },
+    unlock,
     play,
   };
 };

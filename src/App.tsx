@@ -11,6 +11,7 @@ import { Stats } from './components/Stats';
 import { ToastProvider, useToast } from './components/Toast';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useAchievementToasts } from './hooks/useAchievementToasts';
+import { useAudioUnlock } from './hooks/useAudioUnlock';
 import { useLifecyclePersistence } from './hooks/useLifecyclePersistence';
 import { useGameStore } from './store';
 import './App.css';
@@ -117,6 +118,7 @@ function GameApp() {
   });
 
   useAchievementToasts();
+  useAudioUnlock();
   useLifecyclePersistence();
 
   useEffect(() => {

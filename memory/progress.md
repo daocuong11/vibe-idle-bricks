@@ -39,6 +39,7 @@
 - Upgrade buttons with costs
 - Prestige button with progress indicator
 - Keyboard shortcuts ignore interactive controls so Space activates a focused button instead of pausing
+- Audio unlocks from the first gesture; ball/brick/coin cues have a 30 ms cooldown and an 8-voice, 600 ms cap
 
 ## What's Left to Build
 
@@ -78,7 +79,7 @@
 - TypeScript 6.0.3 (strict, `erasableSyntaxOnly`)
 - ESLint 10.12.0 + typescript-eslint 8.71.1
 - jsdom 30.1.2
-- **Test count**: 407 passing across 33 files
+- **Test count**: 418 passing across 34 files
 - **CI**: `.github/workflows/ci.yml` runs lint, typecheck, `test:run`, and build on PRs and `main`
 
 ## Known Issues
