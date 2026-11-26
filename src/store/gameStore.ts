@@ -8,6 +8,9 @@ import {
   calculateBlueprintsEarned,
   calculateTierForBricks,
   getPrestigeMultiplier,
+  getPrestigeUpgradeCost,
+  getPrestigeUpgradeMultiplier,
+  MAX_PRESTIGE_UPGRADE_LEVEL,
   getUpgradeMultiplier,
   MAX_BALLS,
   MAX_SPEED_UPGRADE,
@@ -20,6 +23,8 @@ import type {
   BallData,
   BrickData,
   Upgrades,
+  PrestigeUpgrades,
+  PrestigeUpgradeType,
   Explosion,
   SaveData,
   SavedBrickData,
@@ -65,6 +70,14 @@ interface GameStore {
   prestigeLevel: number;
   /** Persistent prestige currency earned on prestige. */
   blueprints: Decimal;
+  /** Permanent prestige-tree node levels. */
+  prestigeUpgrades: PrestigeUpgrades;
+  /** Total coins credited through gameplay, excluding starting/imported balances. */
+  lifetimeCoins: Decimal;
+  /** Highest tier reached across all runs. */
+  bestTier: number;
+  /** Active play time in milliseconds, persisted on save. */
+  playTimeMs: number;
   /** Current levels of all purchased upgrades. */
   upgrades: Upgrades;
   /** Current cost to purchase the next ball of each type. */
@@ -162,6 +175,9 @@ interface GameStore {
    * @returns {number} The number of levels purchased.
    */
   buyMaxUpgrade: (type: keyof Upgrades) => number;
+
+  /** Purchases one permanent prestige-tree level with Blueprints. */
+  buyPrestigeUpgrade: (type: PrestigeUpgradeType) => boolean;
 
   /**
    * Checks if the player meets the requirements to prestige.
@@ -298,9 +314,26 @@ interface GameStore {
 
 const ZERO_DECIMAL = new Decimal(0);
 const SAVE_STORAGE_KEY = 'idleBricksSave';
+const MAX_PLAYTIME_DELTA_MS = 60_000;
+let lastPlayTimeTick = Date.now();
+
+const resetPlayTimeTracking = (): void => {
+  lastPlayTimeTick = Date.now();
+};
+
+/** Accrues active-session time but never counts a long offline/background gap. */
+const accruePlayTime = (playTimeMs: number): number => {
+  const now = Date.now();
+  const delta = Math.min(
+    MAX_PLAYTIME_DELTA_MS,
+    Math.max(0, now - lastPlayTimeTick)
+  );
+  lastPlayTimeTick = now;
+  return playTimeMs + delta;
+};
 
 /** Current persisted save schema. Version 0 means a pre-versioning legacy save. */
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 export interface BoardSnapshotPatch {
   balls: BallData[];
@@ -540,6 +573,10 @@ interface SaveDataBuilderState {
   totalBricksBroken: Decimal;
   prestigeLevel: number;
   blueprints: Decimal;
+  prestigeUpgrades: PrestigeUpgrades;
+  lifetimeCoins: Decimal;
+  bestTier: number;
+  playTimeMs: number;
   upgrades: Upgrades;
   ballCosts: Record<BallType, Decimal>;
   upgradeCosts: Record<keyof Upgrades, Decimal>;
@@ -570,6 +607,10 @@ const buildSaveData = (state: SaveDataBuilderState): SaveData => ({
   totalBricksBroken: state.totalBricksBroken.toString(),
   prestigeLevel: state.prestigeLevel,
   blueprints: state.blueprints.toString(),
+  prestigeUpgrades: state.prestigeUpgrades,
+  lifetimeCoins: state.lifetimeCoins.toString(),
+  bestTier: state.bestTier,
+  playTimeMs: state.playTimeMs,
   upgrades: state.upgrades,
   ballCosts: Object.fromEntries(
     Object.entries(state.ballCosts).map(([k, v]) => [k, v.toString()])
@@ -731,6 +772,7 @@ const getLocalStorage = (): StorageLike | undefined => {
  *   so BoardSimulation generates a fresh board on load).
  * - v2 -> v3: adds Blueprints prestige currency (defaults to '0') and removes
  *   legacy tier/prestige hard caps.
+ * - v3 -> v4: adds the prestige tree, lifetime records, best tier, and play time.
  */
 const migrateSaveData = (raw: Record<string, unknown>, fromVersion: number): SaveData => {
   let migrated: Record<string, unknown> = { ...raw };
@@ -744,6 +786,16 @@ const migrateSaveData = (raw: Record<string, unknown>, fromVersion: number): Sav
     migrated = {
       ...migrated,
       blueprints: migrated.blueprints !== undefined ? migrated.blueprints : '0',
+      version: SAVE_VERSION,
+    };
+  }
+  if (fromVersion < 4) {
+    migrated = {
+      ...migrated,
+      prestigeUpgrades: migrated.prestigeUpgrades ?? { might: 0, fortune: 0, insight: 0 },
+      lifetimeCoins: migrated.lifetimeCoins ?? '0',
+      bestTier: parseInteger(migrated.currentTier, 1),
+      playTimeMs: 0,
       version: SAVE_VERSION,
     };
   }
@@ -825,16 +877,31 @@ const parseSaveData = (saveData: SaveData, canvasWidth: number, canvasHeight: nu
     }
   }
 
+  const savedPrestigeUpgrades: Record<string, unknown> = isRecord(saveData.prestigeUpgrades)
+    ? saveData.prestigeUpgrades
+    : {};
+  const prestigeUpgrades = {
+    might: parseInteger(savedPrestigeUpgrades.might, 0, MAX_PRESTIGE_UPGRADE_LEVEL),
+    fortune: parseInteger(savedPrestigeUpgrades.fortune, 0, MAX_PRESTIGE_UPGRADE_LEVEL),
+    insight: parseInteger(savedPrestigeUpgrades.insight, 0, MAX_PRESTIGE_UPGRADE_LEVEL),
+  };
+  const currentTier = parseInteger(saveData.currentTier, 1);
+  const bestTier = Math.max(currentTier, parseInteger(saveData.bestTier, 1));
+
   return {
     coins: parseDecimal(saveData.coins),
     bricksBroken: parseDecimal(saveData.bricksBroken),
     totalBricksBroken: parseDecimal(saveData.totalBricksBroken),
     prestigeLevel: parseInteger(saveData.prestigeLevel, 0),
     blueprints: parseDecimal(saveData.blueprints),
+    prestigeUpgrades,
+    lifetimeCoins: parseDecimal(saveData.lifetimeCoins),
+    bestTier,
+    playTimeMs: parseInteger(saveData.playTimeMs, 0),
     upgrades,
     ballCosts,
     upgradeCosts,
-    currentTier: parseInteger(saveData.currentTier, 1),
+    currentTier,
     balls: balls.length > 0 ? balls : [createBall('basic', canvasWidth, canvasHeight, ballRandom)],
     bricks: parsedBoard.bricks,
     boardSeed: parsedBoard.boardSeed,
@@ -855,6 +922,10 @@ export const useGameStore = create<GameStore>()(
     totalBricksBroken: new Decimal(0),
     prestigeLevel: 0,
     blueprints: new Decimal(0),
+    prestigeUpgrades: { might: 0, fortune: 0, insight: 0 },
+    lifetimeCoins: new Decimal(0),
+    bestTier: 1,
+    playTimeMs: 0,
     upgrades: { speed: 0, damage: 0, coinMult: 0 },
     ballCosts: getDefaultBallCosts(),
     upgradeCosts: getDefaultUpgradeCosts(),
@@ -885,7 +956,10 @@ export const useGameStore = create<GameStore>()(
       const prestigeBonus = getPrestigeMultiplier(state.prestigeLevel);
       const creditedCoins = amount.mul(prestigeBonus);
       const newCoins = state.coins.add(creditedCoins);
-      set({ coins: newCoins });
+      set({
+        coins: newCoins,
+        lifetimeCoins: state.lifetimeCoins.add(creditedCoins),
+      });
       recordIncome(creditedCoins);
       // Only play the "coin" sound for small, non-coin-spam additions
       // (bricks award 1–10 coins, prestige awards large sums, etc.)
@@ -895,13 +969,17 @@ export const useGameStore = create<GameStore>()(
     },
 
     applyIdleEarnings: (seconds, liveIncomePerSecond) => {
+      resetPlayTimeTracking();
       const state = get();
       if (liveIncomePerSecond || state.bricks.length === 0 || state.balls.length === 0) {
         const liveRate = liveIncomePerSecond ?? state.getIncomePerSecond();
-        const { coins, message } = calculateOfflineEarnings(liveRate, seconds);
+        const { coins } = calculateOfflineEarnings(liveRate, seconds);
+        const insightMultiplier = getPrestigeUpgradeMultiplier('insight', state.prestigeUpgrades.insight);
+        const creditedCoins = coins.mul(insightMultiplier);
         set({
-          coins: state.coins.add(coins),
-          pendingOfflineMessage: message,
+          coins: state.coins.add(creditedCoins),
+          lifetimeCoins: state.lifetimeCoins.add(creditedCoins),
+          pendingOfflineMessage: formatOfflineMessage(creditedCoins, seconds),
           timestamp: Date.now(),
         });
         return;
@@ -929,14 +1007,19 @@ export const useGameStore = create<GameStore>()(
         calculateTierForBricks(nextBricksBroken)
       );
 
+      const creditedCoins = sim.coinsEarned.mul(
+        getPrestigeUpgradeMultiplier('insight', state.prestigeUpgrades.insight)
+      );
       set({
-        coins: state.coins.add(sim.coinsEarned),
+        coins: state.coins.add(creditedCoins),
+        lifetimeCoins: state.lifetimeCoins.add(creditedCoins),
         bricks: sim.finalBricks,
         balls: sim.finalBalls,
         bricksBroken: nextBricksBroken,
         totalBricksBroken: nextTotalBricksBroken,
         currentTier: nextTier,
-        pendingOfflineMessage: formatOfflineMessage(sim.coinsEarned, seconds),
+        bestTier: Math.max(state.bestTier, nextTier),
+        pendingOfflineMessage: formatOfflineMessage(creditedCoins, seconds),
         timestamp: Date.now(),
       });
       get().checkAchievements();
@@ -953,7 +1036,7 @@ export const useGameStore = create<GameStore>()(
       // Check if we need to increase tier
       const newTier = calculateTierForBricks(nextBricksBroken);
       if (newTier > state.currentTier) {
-        set({ currentTier: newTier });
+        set({ currentTier: newTier, bestTier: Math.max(state.bestTier, newTier) });
       }
 
       get().checkAchievements();
@@ -964,10 +1047,12 @@ export const useGameStore = create<GameStore>()(
       const rawCoins = batch.coins ?? ZERO_DECIMAL;
       const hasCoins = rawCoins.gt(0) && isFiniteDecimal(rawCoins);
       let nextCoins = state.coins;
+      let nextLifetimeCoins = state.lifetimeCoins;
       if (hasCoins) {
         const prestigeBonus = getPrestigeMultiplier(state.prestigeLevel);
         const creditedCoins = rawCoins.mul(prestigeBonus);
         nextCoins = state.coins.add(creditedCoins);
+        nextLifetimeCoins = state.lifetimeCoins.add(creditedCoins);
         recordIncome(creditedCoins);
         if (rawCoins.lt(1000)) {
           playSound('coin');
@@ -994,6 +1079,7 @@ export const useGameStore = create<GameStore>()(
 
       let nextUnlocked = state.unlockedAchievements;
       let nextPendingUnlocks = state.pendingAchievementUnlocks;
+      let blueprintReward = 0;
       if (hasCoins || hasBroken || batch.board) {
         const achievementState: AchievementGameState = {
           totalBricksBroken: nextTotalBricksBroken,
@@ -1010,23 +1096,31 @@ export const useGameStore = create<GameStore>()(
           nextUnlocked = { ...state.unlockedAchievements };
           for (const id of newlyUnlocked) {
             nextUnlocked[id] = unlockedAt;
+            blueprintReward += getAchievementBlueprintReward(id);
           }
           nextPendingUnlocks = [...state.pendingAchievementUnlocks, ...newlyUnlocked];
         }
       }
 
       const patch: Partial<GameStore> = {};
-      if (hasCoins) patch.coins = nextCoins;
+      if (hasCoins) {
+        patch.coins = nextCoins;
+        patch.lifetimeCoins = nextLifetimeCoins;
+      }
       if (hasBroken) {
         patch.bricksBroken = nextBricksBroken;
         patch.totalBricksBroken = nextTotalBricksBroken;
         if (nextTier !== state.currentTier) {
           patch.currentTier = nextTier;
         }
+        patch.bestTier = Math.max(state.bestTier, nextTier);
       }
       if (nextUnlocked !== state.unlockedAchievements) {
         patch.unlockedAchievements = nextUnlocked;
         patch.pendingAchievementUnlocks = nextPendingUnlocks;
+        if (blueprintReward > 0) {
+          patch.blueprints = state.blueprints.add(blueprintReward);
+        }
       }
       if (batch.board) {
         patch.balls = batch.board.balls;
@@ -1153,6 +1247,24 @@ export const useGameStore = create<GameStore>()(
       return plan.levels;
     },
 
+    buyPrestigeUpgrade: (type) => {
+      const state = get();
+      const level = state.prestigeUpgrades[type];
+      if (level >= MAX_PRESTIGE_UPGRADE_LEVEL) return false;
+      const cost = getPrestigeUpgradeCost(type, level);
+      if (!state.blueprints.gte(cost)) return false;
+
+      set({
+        blueprints: state.blueprints.sub(cost),
+        prestigeUpgrades: {
+          ...state.prestigeUpgrades,
+          [type]: level + 1,
+        },
+      });
+      playSound('purchase');
+      return true;
+    },
+
     canPrestige: () => {
       const state = get();
       return state.bricksBroken.gte(PRESTIGE_THRESHOLD);
@@ -1253,6 +1365,8 @@ export const useGameStore = create<GameStore>()(
       flushActiveBoard();
       const storage = getLocalStorage();
       const state = get();
+      const playTimeMs = accruePlayTime(state.playTimeMs);
+      if (playTimeMs !== state.playTimeMs) set({ playTimeMs });
 
       if (!storage) {
         if (typeof window !== 'undefined' && !state.pendingSaveError) {
@@ -1262,7 +1376,7 @@ export const useGameStore = create<GameStore>()(
       }
 
       try {
-        storage.setItem(SAVE_STORAGE_KEY, JSON.stringify(buildSaveData(state)));
+        storage.setItem(SAVE_STORAGE_KEY, JSON.stringify(buildSaveData({ ...state, playTimeMs })));
         if (state.pendingSaveError) set({ pendingSaveError: null });
         return true;
       } catch (error) {
@@ -1307,6 +1421,7 @@ export const useGameStore = create<GameStore>()(
         });
 
         resetIncomeTracking();
+        resetPlayTimeTracking();
         return true;
       } catch (e) {
         console.error('Failed to import save:', e);
@@ -1353,7 +1468,9 @@ export const useGameStore = create<GameStore>()(
           pendingAchievementUnlocks: [],
         });
 
-        // Calculate offline progress
+        // Calculate offline progress. This also resets the play-time tracker so
+        // time spent away is not counted when the load saves immediately.
+        resetPlayTimeTracking();
         const loadedTimestamp = partialState.timestamp;
         if (loadedTimestamp) {
           const offlineTime = Date.now() - loadedTimestamp;
@@ -1392,6 +1509,10 @@ export const useGameStore = create<GameStore>()(
         totalBricksBroken: new Decimal(0),
         prestigeLevel: 0,
         blueprints: new Decimal(0),
+        prestigeUpgrades: { might: 0, fortune: 0, insight: 0 },
+        lifetimeCoins: new Decimal(0),
+        bestTier: 1,
+        playTimeMs: 0,
         currentTier: 1,
         upgrades: { speed: 0, damage: 0, coinMult: 0 },
         ballCosts: getDefaultBallCosts(),
@@ -1405,6 +1526,7 @@ export const useGameStore = create<GameStore>()(
         pendingSaveError: null,
         timestamp: Date.now(),
       });
+      resetPlayTimeTracking();
     },
 
     setPaused: (paused) => {
@@ -1472,14 +1594,15 @@ export const useGameStore = create<GameStore>()(
       const state = get();
       // Prestige also strengthens balls, otherwise thresholds (bricks) would
       // outgrow the damage needed to break them.
-      return getUpgradeMultiplier(state.upgrades.damage).mul(
-        getPrestigeMultiplier(state.prestigeLevel)
-      );
+      return getUpgradeMultiplier(state.upgrades.damage)
+        .mul(getPrestigeMultiplier(state.prestigeLevel))
+        .mul(getPrestigeUpgradeMultiplier('might', state.prestigeUpgrades.might));
     },
 
     getCoinMult: () => {
       const state = get();
-      return getUpgradeMultiplier(state.upgrades.coinMult);
+      return getUpgradeMultiplier(state.upgrades.coinMult)
+        .mul(getPrestigeUpgradeMultiplier('fortune', state.prestigeUpgrades.fortune));
     },
 
     getSpeedMult: () => {

@@ -30,6 +30,10 @@ const resetStore = () => {
     totalBricksBroken: new Decimal(0),
     prestigeLevel: 0,
     blueprints: new Decimal(0),
+    prestigeUpgrades: { might: 0, fortune: 0, insight: 0 },
+    lifetimeCoins: new Decimal(0),
+    bestTier: 1,
+    playTimeMs: 0,
     upgrades: { speed: 0, damage: 0, coinMult: 0 },
     ballCosts: {
       basic: new Decimal(BALL_TYPES.basic.baseCost),

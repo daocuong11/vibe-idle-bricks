@@ -3,17 +3,21 @@ import Decimal from 'break_infinity.js';
 import { planMaxUpgrade, useGameStore } from '../store';
 import {
   type BallType,
+  type PrestigeUpgradeType,
   BALL_TYPES,
   PRESTIGE_THRESHOLD,
+  PRESTIGE_UPGRADES,
   calculateBlueprintsEarned,
   getPrestigeMultiplier,
+  getPrestigeUpgradeCost,
+  getPrestigeUpgradeMultiplier,
   getUpgradeMultiplier,
   MAX_BALLS,
   MAX_SPEED_UPGRADE,
   UPGRADE_MULTIPLIER,
 } from '../types';
 import { formatMultiplier, formatNumber } from '../utils';
-import { ShoppingCart, Zap, Crosshair, Bomb, Circle, Hexagon, Star, ArrowUpCircle, Coins, TrendingUp } from 'lucide-react';
+import { ShoppingCart, Zap, Crosshair, Bomb, Circle, Hexagon, Star, ArrowUpCircle, Coins, TrendingUp, Swords, Sparkles } from 'lucide-react';
 import { Modal } from './Modal';
 
 /** List of available ball types in the shop order. */
@@ -29,6 +33,12 @@ const BallIcons: Record<BallType, React.ElementType> = {
   plasma: Star,
   explosive: Bomb,
   sniper: Crosshair,
+};
+
+const PrestigeIcons: Record<PrestigeUpgradeType, React.ElementType> = {
+  might: Swords,
+  fortune: Coins,
+  insight: Sparkles,
 };
 
 /** Current and next total effect, e.g. "×1 → ×1.1" for speed or "×1 → ×1.08" for multiplicative upgrades. */
@@ -78,6 +88,8 @@ export function Shop() {
   const currentTier = useGameStore((state) => state.currentTier);
   const prestigeLevel = useGameStore((state) => state.prestigeLevel);
   const blueprints = useGameStore((state) => state.blueprints);
+  const prestigeUpgrades = useGameStore((state) => state.prestigeUpgrades);
+  const buyPrestigeUpgrade = useGameStore((state) => state.buyPrestigeUpgrade);
   const canPrestige = useGameStore((state) => state.canPrestige);
   const buyBall = useGameStore((state) => state.buyBall);
   const buyMaxBalls = useGameStore((state) => state.buyMaxBalls);
@@ -229,6 +241,46 @@ export function Shop() {
       {activeTab === 'prestige' && (
         <div className="shop-section" role="tabpanel" id={`${shopId}-panel-prestige`} aria-labelledby={`${shopId}-tab-prestige`}>
           <h3>Prestige</h3>
+          <div className="prestige-tree-heading">
+            <h4>Prestige Tree</h4>
+            <span>{formatNumber(blueprints)} Blueprints</span>
+          </div>
+          <div className="prestige-tree">
+            {(Object.keys(PRESTIGE_UPGRADES) as PrestigeUpgradeType[]).map((type) => {
+              const config = PRESTIGE_UPGRADES[type];
+              const level = prestigeUpgrades[type];
+              const cost = getPrestigeUpgradeCost(type, level);
+              const effect = getPrestigeUpgradeMultiplier(type, level);
+              const nextEffect = getPrestigeUpgradeMultiplier(type, level + 1);
+              const Icon = PrestigeIcons[type];
+              const canAfford = blueprints.gte(cost);
+              const effectLabel = type === 'might' ? 'Damage' : type === 'fortune' ? 'Live coins' : 'Idle coins';
+
+              return (
+                <div key={type} className={`shop-item prestige-upgrade ${canAfford ? 'affordable' : ''}`}>
+                  <div className="prestige-upgrade-main">
+                    <span className="item-name">
+                      <Icon size={16} className="inline-block mr-2" style={{ verticalAlign: 'text-bottom' }} aria-hidden="true" />
+                      {config.name} <span className="item-level">Lv.{level}</span>
+                    </span>
+                    <span className="item-cost">{formatNumber(cost)}</span> Blueprints
+                    <div className="item-desc">{config.description}</div>
+                    <div className="item-desc">
+                      {effectLabel}: ×{formatMultiplier(effect)} → ×{formatMultiplier(nextEffect)}
+                    </div>
+                  </div>
+                  <button
+                    className="buy-btn"
+                    disabled={!canAfford}
+                    onClick={() => buyPrestigeUpgrade(type)}
+                    aria-label={`Buy ${config.name}`}
+                  >
+                    Buy
+                  </button>
+                </div>
+              );
+            })}
+          </div>
           <button
             className={`shop-item prestige-btn ${canDoPrestige ? 'affordable' : ''}`}
             disabled={!canDoPrestige}
@@ -266,7 +318,7 @@ export function Shop() {
         Prestige grants +{formatNumber(blueprintsEarned)} Blueprints and raises your damage and coin multiplier from ×
         {formatMultiplier(prestigeMult)} to ×{formatMultiplier(nextPrestigeMult)}.
       </p>
-      <p>Keeps: blueprints, upgrades, achievements, and the prestige bonus.</p>
+      <p>Keeps: blueprints, prestige tree, upgrades, achievements, and the prestige bonus.</p>
       <p>Resets: coins, balls and their costs, tier, and bricks broken this run.</p>
     </Modal>
     </>

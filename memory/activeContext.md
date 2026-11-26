@@ -2,6 +2,17 @@
 
 ## Current Work Focus
 
+Issue #86 (**Prestige tree and lifetime records**) is implemented on
+`feat/prestige-tree` (2026-11-26): uncapped Might/Fortune/Insight Blueprint nodes,
+shop cards and purchase controls, lifetime coins/best tier/playtime tracking,
+a read-only Footer Records dialog, and `SAVE_VERSION = 4` migration for v0–v3
+saves. Fortune flows through the existing board coin multiplier exactly once;
+Insight applies after both offline paths. Playtime is save-bound and gaps over
+60 seconds are truncated. A review fix also restores achievement Blueprint
+rewards in the batched `applyBoardRewards` path. Validation: 510 tests across
+42 files, lint, typecheck, production build, and Canvas Vite build pass.
+Design: `memory/designs/DESIGN014-prestige-tree-records.md`.
+
 Batch 7b (**Special bricks MVP**) is **complete** (2026-11-26, PR #120):
 gold bricks pay 5×, armored bricks have 2× health and take 25% damage from
 non-piercing hits, both spawn at 10%, persist in the board save, and have
@@ -55,6 +66,12 @@ TypeScript 6.0.3. The entries below are historical context from the November
 playtest and earlier batches.
 
 ## Recent Changes
+
+- Issue #86: permanent Blueprint tree nodes (Might/Fortune/Insight), lifetime
+  coin/best-tier/playtime records, Records modal, and v4 migration. Tree and
+  records survive prestige and clear on full reset. Review also fixed achievement
+  Blueprint rewards in the batched `applyBoardRewards` path. 510 tests across
+  42 files plus lint/typecheck/production/Canvas builds pass.
 
 - Batch 7b (PR #120): gold and armored bricks MVP. Gold pays 5× tier value; armored gets
   2× health and takes 25% damage from basic/fast/sniper/click hits, while heavy,
