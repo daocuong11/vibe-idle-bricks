@@ -76,13 +76,16 @@ Batch 4a merged in #115. Batch 4b keeps Phaser for Batch 5. The Canvas2D spike i
 
 Issues: [#103]; enables [#76] and [#81]. Update or close [#52] when the remaining leaves are done.
 
-- [ ] `model/`: state, `step(state, dt)`, versioned save, seeded RNG.
-- [ ] `runtime/`: fixed-step loop, 10 Hz snapshots.
-- [ ] Port collision, damage, rewards, refill, targeting, and click handling; keep the renderer as an adapter.
-- [ ] Tests: determinism, one-shot damage, batch damage, offline fast-forward; core coverage at least 80%.
+- [x] Stage 1: `model/` core with `step`, collisions, damage, reward events, and seeded RNG. Versioned board save is deferred.
+- [x] Port collision, damage, rewards, targeting, click handling, and brick generation; `BoardSimulation` remains the store/effects adapter.
+- [x] Tests: determinism, one-shot damage, batch damage, targeting, AoE, click, and seeded brick setup; core coverage 99.4% statements.
+- [ ] Stage 2: `runtime/` fixed-step loop and 10 Hz snapshots.
+- [ ] Stage 3: versioned board save/restore.
+- [ ] Stage 4: deterministic offline fast-forward.
 - [ ] Move React reads to snapshots; at most 10 store writes per second.
 
-Sequence after Batch 4 so the renderer is stable. A branch can start in parallel but should rebase before merging.
+Stage 1 implemented 2026-11-26; PR pending. Stages 2–4 are sequenced in
+`memory/designs/DESIGN012-simulation-core.md`. The store-write budget is not solved.
 
 ## Batch 6 — Economy redesign (1–2 weeks, design first)
 

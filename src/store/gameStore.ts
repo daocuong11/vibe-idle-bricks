@@ -38,6 +38,11 @@ import {
   resetIncomeTracking,
 } from './earnings';
 import { playSound } from '../utils/audio';
+import {
+  resolveBrickDamageBatch,
+  type BrickDamageOperation,
+  type BrickDamageResult,
+} from '../game/model/damage';
 
 /**
  * Interface defining the entire state and actions of the game store.
@@ -273,18 +278,6 @@ interface GameStore {
   getIncomePerSecond: () => Decimal;
 }
 
-interface BrickDamageOperation {
-  id: string;
-  damage: Decimal;
-}
-
-interface BrickDamageResult {
-  id: string;
-  brick: BrickData;
-  destroyed: boolean;
-  value: Decimal;
-}
-
 const ZERO_DECIMAL = new Decimal(0);
 const SAVE_STORAGE_KEY = 'idleBricksSave';
 
@@ -386,66 +379,6 @@ const buildSaveData = (state: SaveDataBuilderState): SaveData => ({
   timestamp: Date.now(),
   version: SAVE_VERSION,
 });
-
-const resolveBrickDamageBatch = (
-  bricks: BrickData[],
-  operations: BrickDamageOperation[]
-) => {
-  const damageByBrickId = new Map<string, Decimal>();
-
-  for (const operation of operations) {
-    const currentDamage = damageByBrickId.get(operation.id);
-    damageByBrickId.set(
-      operation.id,
-      currentDamage ? currentDamage.add(operation.damage) : operation.damage
-    );
-  }
-
-  if (damageByBrickId.size === 0) {
-    return {
-      bricks,
-      results: [] as BrickDamageResult[],
-    };
-  }
-
-  const nextBricks: BrickData[] = [];
-  const results: BrickDamageResult[] = [];
-
-  for (const brick of bricks) {
-    const damage = damageByBrickId.get(brick.id);
-    if (!damage) {
-      nextBricks.push(brick);
-      continue;
-    }
-
-    const newHealth = brick.health.sub(damage);
-    const destroyed = newHealth.lte(0);
-
-    if (destroyed) {
-      results.push({
-        id: brick.id,
-        brick,
-        destroyed: true,
-        value: brick.value,
-      });
-      continue;
-    }
-
-    const updatedBrick = { ...brick, health: newHealth, lastHitTime: performance.now() };
-    nextBricks.push(updatedBrick);
-    results.push({
-      id: brick.id,
-      brick: updatedBrick,
-      destroyed: false,
-      value: ZERO_DECIMAL,
-    });
-  }
-
-  return {
-    bricks: nextBricks,
-    results,
-  };
-};
 
 /**
  * Returns the default costs for all ball types.
@@ -869,7 +802,7 @@ export const useGameStore = create<GameStore>()(
 
     applyBrickDamageBatch: (operations) => {
       const state = get();
-      const nextState = resolveBrickDamageBatch(state.bricks, operations);
+      const nextState = resolveBrickDamageBatch(state.bricks, operations, performance.now());
       if (nextState.results.length > 0) {
         set({ bricks: nextState.bricks });
       }

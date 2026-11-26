@@ -4,7 +4,8 @@
 
 ### Core Gameplay ✅
 
-- `GameScene` now uses the shared `BallPhysics` helper for movement, targeting, and collisions
+- `GameScene` and `CanvasGame` use `BoardSimulation` as the store/effects adapter over the pure `src/game/model/` board core; `BallPhysics` remains a compatibility wrapper
+- The core owns fixed-step movement, wall/brick collisions, Decimal damage, reward events, explosions, targeting, and click damage without React/Zustand/Phaser/browser APIs
 - Game loop hot paths optimized with bounded explosion queries, batched brick damage, and extracted render/effect helpers
 - Ball physics with wall bouncing
 - Brick collision detection and damage
@@ -45,6 +46,12 @@
 
 ## What's Left to Build
 
+### Simulation follow-ups (Batch 5 Stages 2–4)
+
+- [ ] 10 Hz immutable UI snapshot bus and renderer snapshot reads (store-write budget not yet solved)
+- [ ] Versioned board save/restore with seed and validated state hydration
+- [ ] Deterministic offline board fast-forward using the pure core
+
 ### High Priority
 
 - [x] Sound effects (Shipped in PR2, commit `11c9f5b`)
@@ -81,7 +88,8 @@
 - TypeScript 6.0.3 (strict, `erasableSyntaxOnly`)
 - ESLint 10.12.0 + typescript-eslint 8.71.1
 - jsdom 30.1.2
-- **Test count**: 432 passing across 36 files
+- **Test count**: 444 passing across 37 files
+- **Core coverage**: 99.41% statements (170/171), 100% lines/functions, 87.34% branches
 - **CI**: `.github/workflows/ci.yml` runs lint, typecheck, `test:run`, and build on PRs and `main`
 
 ## Known Issues
