@@ -1,7 +1,17 @@
 import { describe, it, expect } from 'vitest';
 import { BrickManager } from '../../src/game/BrickManager';
 import { createSeededRandom } from '../../src/game/model/rng';
-import { BRICK_WIDTH, BRICK_HEIGHT, BRICK_PADDING, MAX_ROWS_FILL_FACTOR, ARENA_FLOOR_HEIGHT, getSpawnZoneHeight } from '../../src/game/constants';
+import {
+  BRICK_WIDTH,
+  BRICK_HEIGHT,
+  BRICK_PADDING,
+  MAX_ROWS_FILL_FACTOR,
+  ARENA_FLOOR_HEIGHT,
+  getSpawnZoneHeight,
+  GOLD_BRICK_VALUE_MULTIPLIER,
+  ARMORED_BRICK_HEALTH_MULTIPLIER,
+} from '../../src/game/constants';
+import { calculateBrickStats } from '../../src/types/game';
 
 describe('BrickManager', () => {
   describe('generateBricks', () => {
@@ -64,6 +74,26 @@ describe('BrickManager', () => {
 
       expect(minTier).toBeGreaterThanOrEqual(4);
       expect(maxTier).toBeLessThanOrEqual(7);
+    });
+
+    it('spawns gold and armored bricks with modified stats', () => {
+      const manager = new BrickManager({ width: 800, height: 600 }, createSeededRandom(7));
+      const bricks = manager.generateBricks(200, 5);
+      const gold = bricks.find((brick) => brick.kind === 'gold');
+      const armored = bricks.find((brick) => brick.kind === 'armored');
+
+      expect(gold).toBeDefined();
+      expect(armored).toBeDefined();
+      if (gold) {
+        expect(gold.value.eq(calculateBrickStats(gold.tier).value.mul(GOLD_BRICK_VALUE_MULTIPLIER))).toBe(true);
+      }
+      if (armored) {
+        expect(
+          armored.maxHealth.eq(
+            calculateBrickStats(armored.tier).maxHealth.mul(ARMORED_BRICK_HEALTH_MULTIPLIER),
+          ),
+        ).toBe(true);
+      }
     });
 
     it('does not drop tier below 1', () => {

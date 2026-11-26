@@ -158,6 +158,32 @@ describe('pure board model', () => {
     expect(resolveBrickDamageBatch(bricks, [], 0).bricks).toBe(bricks);
   });
 
+  it('reduces basic hits on armored bricks but lets heavy balls pierce', () => {
+    const basicWorld = makeWorld([], [
+      makeBrick({ id: 'armor-basic', kind: 'armored', health: new Decimal(10), maxHealth: new Decimal(10) }),
+    ]);
+    damageBoardBricks(basicWorld, [{ id: 'armor-basic', damage: new Decimal(4) }], {
+      source: 'ball',
+      ballType: 'basic',
+      coinMultiplier: 1,
+      particleCount: 1,
+      showCoinText: true,
+    });
+    expect(basicWorld.bricks[0].health.eq(9)).toBe(true);
+
+    const heavyWorld = makeWorld([], [
+      makeBrick({ id: 'armor-heavy', kind: 'armored', health: new Decimal(10), maxHealth: new Decimal(10) }),
+    ]);
+    damageBoardBricks(heavyWorld, [{ id: 'armor-heavy', damage: new Decimal(4) }], {
+      source: 'ball',
+      ballType: 'heavy',
+      coinMultiplier: 1,
+      particleCount: 1,
+      showCoinText: true,
+    });
+    expect(heavyWorld.bricks[0].health.eq(6)).toBe(true);
+  });
+
   it('damages nearby bricks once through explosive area-of-effect events', () => {
     const world = makeWorld([makeBall({ type: 'explosive' })], [
       makeBrick({ id: 'hit', health: new Decimal(2), maxHealth: new Decimal(2) }),

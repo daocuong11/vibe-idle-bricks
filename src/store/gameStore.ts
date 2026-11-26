@@ -468,9 +468,13 @@ const parseSavedBrick = (
   if (health.lte(0) || maxHealth.lte(0) || value.lt(0)) return null;
   if (health.gt(maxHealth)) return null;
 
+  const kind =
+    raw.kind === 'gold' || raw.kind === 'armored' ? raw.kind : 'normal';
+
   seenIds.add(id);
   return {
     id,
+    kind,
     x,
     y,
     width,
@@ -549,6 +553,7 @@ interface SaveDataBuilderState {
 
 const serializeBrick = (brick: BrickData): SavedBrickData => ({
   id: brick.id,
+  kind: brick.kind ?? 'normal',
   x: brick.x,
   y: brick.y,
   width: brick.width,

@@ -29,6 +29,7 @@ class RecordingGraphics {
   }
 
   fillRect() {}
+  fillCircle() {}
   lineStyle() {}
   strokeRect() {}
   destroy() {}
@@ -96,6 +97,20 @@ describe('BrickRenderer health bar', () => {
     expect(bars).toHaveLength(0);
   })
 })
+
+describe('BrickRenderer special bricks', () => {
+  it('uses the gold treatment for gold bricks', () => {
+    const { renderer, graphics } = createRenderer();
+    renderer.render([{ ...makeBrick(), kind: 'gold' }]);
+    expect(graphics.fillStyles.some(({ color }) => color === 0xfbbf24)).toBe(true);
+  });
+
+  it('uses the armored treatment for armored bricks', () => {
+    const { renderer, graphics } = createRenderer();
+    renderer.render([{ ...makeBrick(), kind: 'armored' }]);
+    expect(graphics.fillStyles.some(({ color }) => color === 0x64748b)).toBe(true);
+  });
+});
 
 describe('BrickRenderer hit flash', () => {
   it('flashes a just-hit brick white', () => {

@@ -15,6 +15,7 @@ export function HowToPlay() {
       </summary>
       <ul>
         <li>Bricks break when their health reaches zero; higher tiers pay more coins.</li>
+        <li>Gold bricks pay 5×; armored bricks resist basic hits—use Heavy, Plasma, or Explosive balls.</li>
         <li>Click a brick to deal extra damage to it.</li>
         <li>Buy balls and upgrades in the shop; each ball keeps bouncing on its own.</li>
         <li>Prestige after {formatNumber(PRESTIGE_THRESHOLD)} bricks for a permanent damage and coin multiplier.</li>

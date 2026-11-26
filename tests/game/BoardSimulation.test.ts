@@ -26,6 +26,7 @@ const createEffects = () => ({
 
 const makeBrick = (overrides: Partial<BrickData> = {}): BrickData => ({
   ...useGameStore.getState().bricks[0],
+  kind: 'normal',
   x: 100,
   y: 100,
   width: 60,
