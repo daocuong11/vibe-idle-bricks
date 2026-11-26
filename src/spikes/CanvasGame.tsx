@@ -56,7 +56,7 @@ function mount(canvas: HTMLCanvasElement, parent: HTMLDivElement) {
     context.font = 'bold 12px sans-serif';
     context.textAlign = 'center';
     context.textBaseline = 'middle';
-    const { balls, bricks, explosions } = simulation.getRenderState();
+    const { balls, bricks, explosions, priorityBrickId } = simulation.getRenderState();
     const { colorblindMode } = useSettingsStore.getState();
     for (const brick of bricks) {
       const color = getAccessibleTierColor(brick.tier, colorblindMode);
@@ -65,6 +65,12 @@ function mount(canvas: HTMLCanvasElement, parent: HTMLDivElement) {
       if (brick.tier > 1) {
         context.fillStyle = getContrastTextColor(color);
         context.fillText(String(brick.tier), brick.x + brick.width / 2, brick.y + brick.height / 2);
+      }
+      if (brick.id === priorityBrickId) {
+        context.strokeStyle = '#facc15';
+        context.lineWidth = 3;
+        context.strokeRect(brick.x - 3, brick.y - 3, brick.width + 6, brick.height + 6);
+        context.lineWidth = 1;
       }
     }
     for (const ball of balls) {

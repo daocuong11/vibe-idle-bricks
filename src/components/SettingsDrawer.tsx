@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useSettingsStore } from '../store';
 import { Modal } from './Modal';
-import { Volume2, VolumeX, Eye, Palette } from 'lucide-react';
+import { Volume2, VolumeX, Eye, Palette, ShoppingCart } from 'lucide-react';
 import type { ColorblindMode } from '../store';
 
 interface SettingsDrawerProps {
@@ -30,6 +30,8 @@ export function SettingsDrawer({ open, onClose }: SettingsDrawerProps) {
   const setSoundEnabled = useSettingsStore((s) => s.setSoundEnabled);
   const setReducedMotion = useSettingsStore((s) => s.setReducedMotion);
   const setColorblindMode = useSettingsStore((s) => s.setColorblindMode);
+  const autoBuyEnabled = useSettingsStore((s) => s.autoBuyEnabled);
+  const setAutoBuyEnabled = useSettingsStore((s) => s.setAutoBuyEnabled);
   const hydrate = useSettingsStore((s) => s.hydrate);
 
   // Hydrate persisted settings on first mount. Settings are not game state,
@@ -81,6 +83,25 @@ export function SettingsDrawer({ open, onClose }: SettingsDrawerProps) {
           />
           <span>Reduce motion (particles, shake, floating text)</span>
         </label>
+      </div>
+
+      <div className="settings-section">
+        <h3 className="settings-section-title">
+          <ShoppingCart size={16} aria-hidden="true" />
+          Automation
+        </h3>
+        <label className="settings-toggle">
+          <input
+            type="checkbox"
+            checked={autoBuyEnabled}
+            onChange={(event) => setAutoBuyEnabled(event.target.checked)}
+            data-testid="setting-auto-buy"
+          />
+          <span>Auto-buy upgrades and balls (keeps 50% coins)</span>
+        </label>
+        <p className="settings-help">
+          Runs once per second while enabled; manual purchases still work.
+        </p>
       </div>
 
       <div className="settings-section">

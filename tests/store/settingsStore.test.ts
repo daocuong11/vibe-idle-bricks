@@ -13,6 +13,7 @@ describe('settingsStore', () => {
       soundEnabled: true,
       reducedMotion: false,
       colorblindMode: 'off',
+      autoBuyEnabled: false,
     });
     window.localStorage.clear();
     vi.restoreAllMocks();
@@ -24,10 +25,11 @@ describe('settingsStore', () => {
 
   it('uses sensible defaults', async () => {
     const { useSettingsStore } = await import('../../src/store/settingsStore');
-    const { soundEnabled, reducedMotion, colorblindMode } = useSettingsStore.getState();
+    const { soundEnabled, reducedMotion, colorblindMode, autoBuyEnabled } = useSettingsStore.getState();
     expect(soundEnabled).toBe(true);
     expect(reducedMotion).toBe(false);
     expect(colorblindMode).toBe('off');
+    expect(autoBuyEnabled).toBe(false);
   });
 
   it('toggles sound and persists to localStorage', async () => {
@@ -54,6 +56,14 @@ describe('settingsStore', () => {
     const stored = JSON.parse(window.localStorage.getItem('idleBricksSettings')!);
     expect(stored.colorblindMode).toBe('deuteranopia');
     expect(useSettingsStore.getState().colorblindMode).toBe('deuteranopia');
+  });
+
+  it('toggles auto-buy and persists', async () => {
+    const { useSettingsStore } = await import('../../src/store/settingsStore');
+    useSettingsStore.getState().setAutoBuyEnabled(true);
+    const stored = JSON.parse(window.localStorage.getItem('idleBricksSettings')!);
+    expect(stored.autoBuyEnabled).toBe(true);
+    expect(useSettingsStore.getState().autoBuyEnabled).toBe(true);
   });
 
   it('hydrate() reads persisted values', async () => {

@@ -62,6 +62,20 @@ it('routes a board-space click through the grid and awards a destroyed brick onc
   expect(effects.emitBrickBreakParticles).toHaveBeenCalledTimes(1);
 });
 
+it('marks the clicked brick as the priority target and keeps it while alive', () => {
+  const simulation = new BoardSimulation({ width: 800, height: 500 }, createEffects());
+  const first = makeBrick({ id: 'priority-a', health: new Decimal(100), maxHealth: new Decimal(100) });
+  const second = makeBrick({ id: 'priority-b', x: 300, health: new Decimal(100), maxHealth: new Decimal(100) });
+  useGameStore.getState().setBricks([first, second]);
+  simulation.step(0);
+
+  simulation.handleBrickClick(first.x + 1, first.y + 1);
+  expect(simulation.getRenderState().priorityBrickId).toBe('priority-a');
+
+  simulation.handleBrickClick(second.x + 1, second.y + 1);
+  expect(simulation.getRenderState().priorityBrickId).toBe('priority-b');
+});
+
 it('destroys a brick on a ball hit and batches its reward until the mirror cadence', () => {
   const effects = createEffects();
   const simulation = new BoardSimulation({ width: 800, height: 500 }, effects);

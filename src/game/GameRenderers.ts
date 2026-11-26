@@ -184,14 +184,17 @@ export class BrickRenderer extends BaseRenderer<BrickData> {
   private readonly textById = new Map<string, Phaser.GameObjects.Text>();
   private readonly renderedBrickRefs = new Map<string, BrickData>();
   private readonly flashingBrickIds = new Set<string>();
+  private renderedPriorityId: string | null = null;
 
   constructor(scene: Phaser.Scene) {
     super(scene);
   }
 
-  render(bricks: BrickData[]) {
+  render(bricks: BrickData[], priorityBrickId?: string | null) {
     this.frame++;
     const now = performance.now();
+    const priorityChanged = this.renderedPriorityId !== (priorityBrickId ?? null);
+    this.renderedPriorityId = priorityBrickId ?? null;
 
     for (const brick of bricks) {
       this.seenAtFrame.set(brick.id, this.frame);
@@ -208,8 +211,8 @@ export class BrickRenderer extends BaseRenderer<BrickData> {
 
       // Redraw while flashing and once more when the flash expires, otherwise
       // the white flash frame would stay on screen until the next hit.
-      if (previousBrick !== brick || isHitFlash || wasHitFlash) {
-        this.drawBrick(brick, isHitFlash);
+      if (priorityChanged || previousBrick !== brick || isHitFlash || wasHitFlash) {
+        this.drawBrick(brick, isHitFlash, priorityBrickId === brick.id);
         this.renderedBrickRefs.set(brick.id, brick);
       }
 
@@ -238,7 +241,7 @@ export class BrickRenderer extends BaseRenderer<BrickData> {
     this.flashingBrickIds.clear();
   }
 
-  private drawBrick(brick: BrickData, isHitFlash: boolean) {
+  private drawBrick(brick: BrickData, isHitFlash: boolean, isPriority = false) {
     const graphics = this.getGraphics(brick.id);
     graphics.clear();
 
@@ -273,6 +276,11 @@ export class BrickRenderer extends BaseRenderer<BrickData> {
     } else if (kind === 'armored') {
       graphics.lineStyle(2, 0xbfdbfe, 0.8);
       graphics.strokeRect(brick.x + 4, brick.y + 4, brick.width - 8, brick.height - 8);
+    }
+
+    if (isPriority) {
+      graphics.lineStyle(3, 0xfacc15, 0.95);
+      graphics.strokeRect(brick.x - 3, brick.y - 3, brick.width + 6, brick.height + 6);
     }
 
     if (healthPercent < 1 && !isHitFlash) {

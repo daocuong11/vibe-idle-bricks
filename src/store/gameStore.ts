@@ -179,6 +179,9 @@ interface GameStore {
   /** Purchases one permanent prestige-tree level with Blueprints. */
   buyPrestigeUpgrade: (type: PrestigeUpgradeType) => boolean;
 
+  /** Buys one affordable upgrade or ball while preserving a 50% coin reserve. */
+  autoBuyTick: () => boolean;
+
   /**
    * Checks if the player meets the requirements to prestige.
    * @returns {boolean} True if prestige is available.
@@ -1245,6 +1248,28 @@ export const useGameStore = create<GameStore>()(
         get().checkAchievements();
       }
       return plan.levels;
+    },
+
+    autoBuyTick: () => {
+      const state = get();
+      if (state.isPaused) return false;
+      const canAffordWithReserve = (cost: Decimal): boolean =>
+        state.coins.gte(cost.mul(2));
+
+      for (const type of ['speed', 'damage', 'coinMult'] as const) {
+        if (type === 'speed' && state.upgrades.speed >= MAX_SPEED_UPGRADE) continue;
+        if (canAffordWithReserve(state.upgradeCosts[type])) {
+          return get().buyUpgrade(type);
+        }
+      }
+
+      if (state.balls.length >= MAX_BALLS) return false;
+      for (const type of Object.keys(BALL_TYPES) as BallType[]) {
+        if (canAffordWithReserve(state.ballCosts[type])) {
+          return get().buyBall(type);
+        }
+      }
+      return false;
     },
 
     buyPrestigeUpgrade: (type) => {

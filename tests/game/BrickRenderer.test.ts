@@ -19,9 +19,11 @@ import type { BrickData } from '../../src/types/game';
 /** Minimal Graphics stand-in that records fill colours for assertions. */
 class RecordingGraphics {
   fillStyles: Array<{ color: number; alpha: number }> = [];
+  lineStyles: number[] = [];
 
   clear() {
     this.fillStyles = [];
+    this.lineStyles = [];
   }
 
   fillStyle(color: number, alpha: number) {
@@ -30,7 +32,9 @@ class RecordingGraphics {
 
   fillRect() {}
   fillCircle() {}
-  lineStyle() {}
+  lineStyle(_width: number, color: number) {
+    this.lineStyles.push(color);
+  }
   strokeRect() {}
   destroy() {}
 }
@@ -109,6 +113,14 @@ describe('BrickRenderer special bricks', () => {
     const { renderer, graphics } = createRenderer();
     renderer.render([{ ...makeBrick(), kind: 'armored' }]);
     expect(graphics.fillStyles.some(({ color }) => color === 0x64748b)).toBe(true);
+  });
+});
+
+describe('BrickRenderer priority target', () => {
+  it('draws a yellow focus ring around the marked brick', () => {
+    const { renderer, graphics } = createRenderer();
+    renderer.render([makeBrick()], 'brick-1');
+    expect(graphics.lineStyles).toContain(0xfacc15);
   });
 });
 

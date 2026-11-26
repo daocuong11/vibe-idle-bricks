@@ -226,6 +226,21 @@ describe('pure board model', () => {
     if (destroyed.type === 'brickDestroyed') expect(destroyed.coins.eq(15)).toBe(true);
   });
 
+  it('keeps a marked priority target and clears it when the brick is gone', () => {
+    const world = makeWorld([], [
+      makeBrick({ id: 'weak', health: new Decimal(1), maxHealth: new Decimal(3) }),
+      makeBrick({ id: 'strong', x: 300, health: new Decimal(9), maxHealth: new Decimal(9) }),
+    ]);
+    world.priorityBrickId = 'strong';
+    refreshBoardWorld(world);
+    expect(world.target?.id).toBe('strong');
+
+    world.bricks = world.bricks.filter((brick) => brick.id !== 'strong');
+    refreshBoardWorld(world);
+    expect(world.priorityBrickId).toBeNull();
+    expect(world.target?.id).toBe('weak');
+  });
+
   it('targets the weakest brick and preserves a stationary zero-velocity ball', () => {
     const bricks = [
       makeBrick({ id: 'strong', health: new Decimal(10) }),
