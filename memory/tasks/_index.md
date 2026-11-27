@@ -10,6 +10,7 @@ _No pending tasks._
 
 ## Completed
 
+- [TASK017 — DPR-2 renderer spike (#56)](../designs/DESIGN017-dpr2-renderer-spike.md) (2026-11-27, PR #125; Canvas vs Phaser comparison, no production switch).
 - [TASK016 — Per-ball progression (#83)](../designs/DESIGN016-per-ball-progression.md) (2026-11-27, PR #124).
 - [TASK015 — Run goals (#85)](../designs/DESIGN015-run-goals.md) (2026-11-27, PR #123).
 - [TASK013 — Prestige tree and lifetime records (#86)](../designs/DESIGN014-prestige-tree-records.md) (2026-11-26, PR #121).

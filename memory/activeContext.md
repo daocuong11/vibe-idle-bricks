@@ -2,6 +2,12 @@
 
 ## Current Work Focus
 
+DPR-2 renderer spike (#125) is merged (2026-11-27). At the same 1760×1100
+backing store, optimized Canvas measured ~98–100 ms/frame vs Phaser DPR-2
+~105–108 ms, while normal blurry Phaser is ~84–87 ms. Canvas currently lacks
+production visuals, so the recommendation is Phaser DPR-2 as the #56 fix; no
+production renderer switch was made. Design: `memory/designs/DESIGN017-dpr2-renderer-spike.md`.
+
 Batch 7e (**Per-ball progression**) is **complete** (2026-11-27,
 PR #124): permanent per-type levels bought with
 coins, per-type damage and Fast speed multipliers in the board/offline core,
