@@ -2,11 +2,13 @@ import { useEffect, useRef } from 'react';
 import { BoardSimulation, type BoardEffects } from '../game/BoardSimulation';
 import { BALL_RADIUS } from '../game/constants';
 import { useGameStore } from '../store';
-import { useSettingsStore } from '../store/settingsStore';
-import { BALL_TYPES } from '../types';
+import { useSettingsStore, type ColorblindMode } from '../store/settingsStore';
+import { BALL_TYPES, type BrickData } from '../types';
 import { getAccessibleTierColor, getContrastTextColor } from '../utils';
 
 const board = { width: 800, height: 500 };
+const BRICK_WIDTH = 60;
+const BRICK_HEIGHT = 25;
 
 interface Effect {
   x: number;
@@ -18,80 +20,205 @@ interface Effect {
   text?: string;
 }
 
-function mount(canvas: HTMLCanvasElement, parent: HTMLDivElement) {
-  const context = canvas.getContext('2d');
-  if (!context) throw new Error('Canvas2D is unavailable');
+interface RenderedBrick {
+  x: number;
+  y: number;
+  tier: number;
+  color: string;
+}
+
+function mount(staticCanvas: HTMLCanvasElement, dynamicCanvas: HTMLCanvasElement, parent: HTMLDivElement) {
+  const staticContext = staticCanvas.getContext('2d', { alpha: false });
+  const context = dynamicCanvas.getContext('2d');
+  if (!staticContext || !context) throw new Error('Canvas2D is unavailable');
+
   const effects: Effect[] = [];
+  const effectsEnabled = !window.location.search.includes('noeffects');
   const sink: BoardEffects = {
     showFloatingText(x, y, text, kind) {
+      if (!effectsEnabled) return;
       effects.push({ x, y, dx: 0, dy: -0.04, life: 650, color: kind === 'coin' ? '#ffd54f' : '#fff', text });
     },
     emitBrickBreakParticles(brick, count) {
-      if (useSettingsStore.getState().reducedMotion) return;
+      if (!effectsEnabled || useSettingsStore.getState().reducedMotion) return;
       for (let i = 0; i < count; i++) {
         const angle = 2 * Math.PI * i / count;
-        effects.push({ x: brick.x + brick.width / 2, y: brick.y + brick.height / 2,
-          dx: Math.cos(angle) * 0.07, dy: Math.sin(angle) * 0.07, life: 250, color: '#ffca80' });
+        effects.push({
+          x: brick.x + brick.width / 2,
+          y: brick.y + brick.height / 2,
+          dx: Math.cos(angle) * 0.07,
+          dy: Math.sin(angle) * 0.07,
+          life: 250,
+          color: '#ffca80',
+        });
       }
     },
     shakeExplosion() { /* The spike benchmarks rings without camera shake. */ },
   };
   const simulation = new BoardSimulation(board, sink);
 
-  const sizeCanvas = () => {
+  const tileCache = new Map<string, HTMLCanvasElement>();
+  const ballCache = new Map<string, HTMLCanvasElement>();
+  const renderedBricks = new Map<string, RenderedBrick>();
+  let lastColorblind: ColorblindMode | '' = '';
+  let staticDirty = true;
+
+  const getBrickTile = (tier: number, color: string, scale: number): HTMLCanvasElement => {
+    const key = tier + ':' + color + ':' + scale.toFixed(3);
+    const cached = tileCache.get(key);
+    if (cached) return cached;
+
+    const tile = document.createElement('canvas');
+    tile.width = Math.max(1, Math.round(BRICK_WIDTH * scale));
+    tile.height = Math.max(1, Math.round(BRICK_HEIGHT * scale));
+    const tileContext = tile.getContext('2d');
+    if (!tileContext) return tile;
+    tileContext.setTransform(scale, 0, 0, scale, 0, 0);
+    tileContext.fillStyle = color;
+    tileContext.fillRect(0, 0, BRICK_WIDTH, BRICK_HEIGHT);
+    if (tier > 1) {
+      tileContext.fillStyle = getContrastTextColor(color);
+      tileContext.font = 'bold 12px sans-serif';
+      tileContext.textAlign = 'center';
+      tileContext.textBaseline = 'middle';
+      tileContext.fillText(String(tier), BRICK_WIDTH / 2, BRICK_HEIGHT / 2);
+    }
+    tileCache.set(key, tile);
+    return tile;
+  };
+
+  const getBallSprite = (type: string, scale: number): HTMLCanvasElement => {
+    const key = type + ':' + scale.toFixed(3);
+    const cached = ballCache.get(key);
+    if (cached) return cached;
+
+    const size = Math.max(2, Math.round(BALL_RADIUS * 2 * scale));
+    const sprite = document.createElement('canvas');
+    sprite.width = size;
+    sprite.height = size;
+    const spriteContext = sprite.getContext('2d');
+    if (!spriteContext) return sprite;
+    spriteContext.setTransform(scale, 0, 0, scale, 0, 0);
+    spriteContext.fillStyle = BALL_TYPES[type as keyof typeof BALL_TYPES].color;
+    spriteContext.beginPath();
+    spriteContext.arc(BALL_RADIUS, BALL_RADIUS, BALL_RADIUS, 0, 2 * Math.PI);
+    spriteContext.fill();
+    ballCache.set(key, sprite);
+    return sprite;
+  };
+
+  const clearBrick = (brick: RenderedBrick, scale: number) => {
+    staticContext.fillStyle = '#0f0f1a';
+    staticContext.fillRect(
+      Math.floor(brick.x * scale) - 1,
+      Math.floor(brick.y * scale) - 1,
+      Math.ceil(BRICK_WIDTH * scale) + 2,
+      Math.ceil(BRICK_HEIGHT * scale) + 2
+    );
+  };
+
+  const syncStaticBricks = (bricks: BrickData[], colorblindMode: ColorblindMode, scale: number) => {
+    const seen = new Set<string>();
+    for (const brick of bricks) {
+      seen.add(brick.id);
+      const color = getAccessibleTierColor(brick.tier, colorblindMode);
+      const previous = renderedBricks.get(brick.id);
+      if (previous && previous.tier === brick.tier && previous.color === color && previous.x === brick.x && previous.y === brick.y) {
+        continue;
+      }
+      if (previous) clearBrick(previous, scale);
+      staticContext.drawImage(
+        getBrickTile(brick.tier, color, scale),
+        Math.floor(brick.x * scale),
+        Math.floor(brick.y * scale)
+      );
+      renderedBricks.set(brick.id, { x: brick.x, y: brick.y, tier: brick.tier, color });
+    }
+
+    for (const [id, brick] of renderedBricks) {
+      if (!seen.has(id)) {
+        clearBrick(brick, scale);
+        renderedBricks.delete(id);
+      }
+    }
+  };
+
+  const sizeCanvases = () => {
     const scale = Math.min(parent.clientWidth / board.width, parent.clientHeight / board.height);
     const width = board.width * scale;
     const height = board.height * scale;
-    canvas.style.width = width + 'px';
-    canvas.style.height = height + 'px';
-    canvas.width = Math.max(1, Math.round(width * window.devicePixelRatio));
-    canvas.height = Math.max(1, Math.round(height * window.devicePixelRatio));
+    const cssWidth = width + 'px';
+    const cssHeight = height + 'px';
+    staticCanvas.style.width = cssWidth;
+    staticCanvas.style.height = cssHeight;
+    dynamicCanvas.style.width = cssWidth;
+    dynamicCanvas.style.height = cssHeight;
+
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    for (const target of [staticCanvas, dynamicCanvas]) {
+      target.width = Math.max(1, Math.round(width * dpr));
+      target.height = Math.max(1, Math.round(height * dpr));
+    }
+    tileCache.clear();
+    ballCache.clear();
+    renderedBricks.clear();
+    staticDirty = true;
+    lastColorblind = '';
     draw(0);
   };
 
   const draw = (dt: number) => {
-    context.setTransform(canvas.width / board.width, 0, 0, canvas.height / board.height, 0, 0);
-    context.fillStyle = '#0f0f1a';
-    context.fillRect(0, 0, board.width, board.height);
+    const { balls, bricks, explosions, priorityBrickId } = simulation.getRenderState();
+    const { colorblindMode } = useSettingsStore.getState();
+    const scaleX = staticCanvas.width / board.width;
+    const scaleY = staticCanvas.height / board.height;
+
+    if (staticDirty || lastColorblind !== colorblindMode) {
+      staticContext.setTransform(1, 0, 0, 1, 0, 0);
+      staticContext.fillStyle = '#0f0f1a';
+      staticContext.fillRect(0, 0, staticCanvas.width, staticCanvas.height);
+      renderedBricks.clear();
+      lastColorblind = colorblindMode;
+      staticDirty = false;
+    }
+    syncStaticBricks(bricks, colorblindMode, scaleX);
+
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.clearRect(0, 0, dynamicCanvas.width, dynamicCanvas.height);
+    context.setTransform(scaleX, 0, 0, scaleY, 0, 0);
     context.font = 'bold 12px sans-serif';
     context.textAlign = 'center';
     context.textBaseline = 'middle';
-    const { balls, bricks, explosions, priorityBrickId } = simulation.getRenderState();
-    const { colorblindMode } = useSettingsStore.getState();
-    for (const brick of bricks) {
-      const color = getAccessibleTierColor(brick.tier, colorblindMode);
-      context.fillStyle = color;
-      context.fillRect(brick.x, brick.y, brick.width, brick.height);
-      if (brick.tier > 1) {
-        context.fillStyle = getContrastTextColor(color);
-        context.fillText(String(brick.tier), brick.x + brick.width / 2, brick.y + brick.height / 2);
-      }
-      if (brick.id === priorityBrickId) {
+
+    if (priorityBrickId) {
+      const marked = bricks.find((brick) => brick.id === priorityBrickId);
+      if (marked) {
         context.strokeStyle = '#facc15';
         context.lineWidth = 3;
-        context.strokeRect(brick.x - 3, brick.y - 3, brick.width + 6, brick.height + 6);
+        context.strokeRect(marked.x - 3, marked.y - 3, marked.width + 6, marked.height + 6);
         context.lineWidth = 1;
       }
     }
+
     for (const ball of balls) {
-      context.fillStyle = BALL_TYPES[ball.type].color;
+      const sprite = getBallSprite(ball.type, scaleX);
       if (ball.type === 'sniper' || ball.type === 'plasma') {
-        context.strokeStyle = context.fillStyle;
+        context.strokeStyle = BALL_TYPES[ball.type].color;
         context.beginPath();
         context.moveTo(ball.x, ball.y);
         context.lineTo(ball.x - 3 * ball.dx, ball.y - 3 * ball.dy);
         context.stroke();
       }
-      context.beginPath();
-      context.arc(ball.x, ball.y, BALL_RADIUS, 0, 2 * Math.PI);
-      context.fill();
+      context.drawImage(sprite, ball.x - BALL_RADIUS, ball.y - BALL_RADIUS, BALL_RADIUS * 2, BALL_RADIUS * 2);
     }
+
     context.strokeStyle = '#ffac4a';
     for (const explosion of explosions) {
       context.beginPath();
       context.arc(explosion.x, explosion.y, explosion.radius * (1 - explosion.life / explosion.maxLife), 0, 2 * Math.PI);
       context.stroke();
     }
+
     for (let i = effects.length - 1; i >= 0; i--) {
       const effect = effects[i];
       effect.life -= dt;
@@ -121,15 +248,15 @@ function mount(canvas: HTMLCanvasElement, parent: HTMLDivElement) {
     if (!document.hidden) frame = requestAnimationFrame(tick);
   }
   function pointerDown(event: PointerEvent) {
-    const bounds = canvas.getBoundingClientRect();
+    const bounds = dynamicCanvas.getBoundingClientRect();
     simulation.handleBrickClick((event.clientX - bounds.left) * board.width / bounds.width,
       (event.clientY - bounds.top) * board.height / bounds.height);
   }
-  const observer = new ResizeObserver(sizeCanvas);
+  const observer = new ResizeObserver(sizeCanvases);
   observer.observe(parent);
-  sizeCanvas();
+  sizeCanvases();
   visibilityChanged();
-  canvas.addEventListener('pointerdown', pointerDown);
+  dynamicCanvas.addEventListener('pointerdown', pointerDown);
   document.addEventListener('visibilitychange', visibilityChanged);
   const saveTimer = window.setInterval(() => {
     if (!document.hidden) useGameStore.getState().save();
@@ -138,7 +265,7 @@ function mount(canvas: HTMLCanvasElement, parent: HTMLDivElement) {
     clearInterval(saveTimer);
     cancelAnimationFrame(frame);
     observer.disconnect();
-    canvas.removeEventListener('pointerdown', pointerDown);
+    dynamicCanvas.removeEventListener('pointerdown', pointerDown);
     document.removeEventListener('visibilitychange', visibilityChanged);
     simulation.destroy();
     useGameStore.getState().save();
@@ -146,14 +273,26 @@ function mount(canvas: HTMLCanvasElement, parent: HTMLDivElement) {
 }
 
 export function CanvasGame() {
+  const staticCanvas = useRef<HTMLCanvasElement>(null);
   const canvas = useRef<HTMLCanvasElement>(null);
   const parent = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (canvas.current && parent.current) return mount(canvas.current, parent.current);
+    if (staticCanvas.current && canvas.current && parent.current) {
+      return mount(staticCanvas.current, canvas.current, parent.current);
+    }
   }, []);
-  return <div ref={parent} className="game-canvas" style={{ display: 'grid', placeItems: 'center' }}>
-    <canvas ref={canvas} role="img" aria-label="Brick game board" aria-describedby="game-instructions" />
-  </div>;
+  return (
+    <div ref={parent} className="game-canvas" style={{ position: 'relative', display: 'grid', placeItems: 'center' }}>
+      <canvas ref={staticCanvas} aria-hidden="true" style={{ position: 'absolute', inset: 0, margin: 'auto' }} />
+      <canvas
+        ref={canvas}
+        role="img"
+        aria-label="Brick game board"
+        aria-describedby="game-instructions"
+        style={{ position: 'relative' }}
+      />
+    </div>
+  );
 }
 
 // The spike build substitutes this module at the existing lazy board boundary.

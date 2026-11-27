@@ -5,6 +5,13 @@ import { GameEffects } from './GameEffects';
 import { BallRenderer, BrickRenderer } from './GameRenderers';
 import { ARENA_FLOOR_HEIGHT, getSpawnZoneHeight } from './constants';
 
+export interface GameSceneOptions {
+  /** Backing-store pixels per logical pixel. Default 1. */
+  pixelRatio?: number;
+  logicalWidth?: number;
+  logicalHeight?: number;
+}
+
 export class GameScene extends Phaser.Scene {
   private backgroundGraphics!: Phaser.GameObjects.Graphics;
   private simulation!: BoardSimulation;
@@ -12,9 +19,15 @@ export class GameScene extends Phaser.Scene {
   private brickRenderer!: BrickRenderer;
   private effects!: GameEffects;
   private resizeTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly pixelRatio: number;
+  private readonly logicalWidth: number;
+  private readonly logicalHeight: number;
 
-  constructor() {
+  constructor(options: GameSceneOptions = {}) {
     super({ key: 'GameScene' });
+    this.pixelRatio = options.pixelRatio ?? 1;
+    this.logicalWidth = options.logicalWidth ?? 800;
+    this.logicalHeight = options.logicalHeight ?? 500;
   }
 
   /**
@@ -23,12 +36,19 @@ export class GameScene extends Phaser.Scene {
    */
   create() {
     this.backgroundGraphics = this.add.graphics();
+    if (this.pixelRatio !== 1) {
+      this.cameras.main.setZoom(this.pixelRatio);
+      this.cameras.main.centerOn(this.logicalWidth / 2, this.logicalHeight / 2);
+    }
     this.drawBackground();
     this.ballRenderer = new BallRenderer(this);
     this.brickRenderer = new BrickRenderer(this);
     this.effects = new GameEffects(this);
     this.effects.initialize();
-    this.simulation = new BoardSimulation(this.cameras.main, this.effects);
+    this.simulation = new BoardSimulation(
+      { width: this.logicalWidth, height: this.logicalHeight },
+      this.effects
+    );
 
     this.time.addEvent({
       delay: 30000,
@@ -41,10 +61,10 @@ export class GameScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.shutdown, this);
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      this.simulation.handleBrickClick(pointer.x, pointer.y);
+      this.simulation.handleBrickClick(pointer.worldX, pointer.worldY);
     });
     this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-      this.game.canvas.style.cursor = this.simulation.findBrickAt(pointer.x, pointer.y) ? 'pointer' : 'default';
+      this.game.canvas.style.cursor = this.simulation.findBrickAt(pointer.worldX, pointer.worldY) ? 'pointer' : 'default';
     });
     this.input.on('gameout', () => {
       this.game.canvas.style.cursor = 'default';
@@ -63,7 +83,8 @@ export class GameScene extends Phaser.Scene {
       this.resizeTimer = null;
       // The scene may have been destroyed while the debounce was pending.
       if (!this.cameras?.main) return;
-      const { width, height } = gameSize;
+      const width = gameSize.width / this.pixelRatio;
+      const height = gameSize.height / this.pixelRatio;
       this.simulation.resize(width, height);
       this.drawBackground();
     }, 100);
@@ -73,9 +94,9 @@ export class GameScene extends Phaser.Scene {
    * Draws the background grid and background color.
    */
   drawBackground() {
-    const camera = this.cameras?.main;
-    if (!camera || !this.backgroundGraphics) return;
-    const { width, height } = camera;
+    if (!this.cameras?.main || !this.backgroundGraphics) return;
+    const width = this.logicalWidth;
+    const height = this.logicalHeight;
     this.backgroundGraphics.clear();
 
     this.backgroundGraphics.fillStyle(0x0f0f1a);
